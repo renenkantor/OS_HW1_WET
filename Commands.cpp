@@ -78,16 +78,6 @@ void _removeBackgroundSign(char* cmd_line) {
     cmd_line[str.find_last_not_of(WHITESPACE, idx) + 1] = 0;
 }
 
-// TODO: Add your implementation for classes in Commands.h
-
-/*SmallShell::SmallShell() {
-// TODO: add your implementation
-}*/
-
-SmallShell::~SmallShell() {
-// TODO: add your implementation
-}
-
 /**
 * Creates and returns a pointer to Command class which matches the given command line (cmd_line)
 */
@@ -100,6 +90,8 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
       return new GetCurrDirCommand(cmd_line);
   else if (firstWord.compare("showpid") == 0)
       return new ShowPidCommand(cmd_line);
+  //else if (firstWord.compare("jobs") == 0)
+  //    return new JobsCommand(cmd_line);
   // These are commands with arguments.
   else if (firstWord.compare("chprompt") == 0)
       return new ChangePromptCommand(cmd_line);
@@ -107,7 +99,6 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
       return new ChangeDirCommand(cmd_line);
   else if (firstWord.compare("kill") == 0)
       return new KillCommand(cmd_line, &jobs);
-
 
   return nullptr;
 }
@@ -121,6 +112,10 @@ void SmallShell::executeCommand(const char *cmd_line) {
 
 SmallShell::SmallShell() {
     SmallShell::prompt = "smash> ";
+}
+
+SmallShell::~SmallShell() {
+
 }
 
 Command::Command(const char *cmd_line) {
@@ -164,8 +159,8 @@ void ShowPidCommand::execute() {
 }
 
 void ChangePromptCommand::execute() {
-    string new_prompt = cmd_line.substr(8, cmd_line.find_first_of(" \n"));
-    new_prompt = _trim(new_prompt);
+    string new_prompt = _trim(cmd_line.substr(8));
+    new_prompt = _trim(new_prompt.substr(0, cmd_line.find_first_of(" \n")));
     SmallShell& smash = SmallShell::getInstance();
     if(new_prompt.empty())
         smash.prompt = "smash> ";
@@ -219,16 +214,38 @@ void KillCommand::execute() {
         if(signum < 1 || signum > 64)
             perror("smash error: kill failed");
         else {
-
-            if(smash.jobs.getJobById(job_id) == nullptr) {
+            if(signum < 10)
+                cmd_line = _trim(cmd_line.substr(2));
+            else
+                cmd_line = _trim(cmd_line.substr(3));
+            for(auto l : cmd_line) {
+                if (!isdigit(l)) {
+                    perror("smash error: kill: invalid arguments");
+                    return;
+                }
+            }
+            job_id = stoi(cmd_line);
+            JobEntry *job_to_handle;
+            if((job_to_handle = smash.jobs.getJobById(job_id)) == nullptr) {
                 string job_id_error = "smash error: kill: job-id ";
                 job_id_error.append(to_string(job_id));
                 job_id_error.append(" does not exist");
                 perror(job_id_error.c_str());
             }
+            else {
+                if(kill(job_to_handle->process_id, signum) == -1)
+                    perror("smash error: kill failed");
+            }
         }
     }
-
-
-
 }
+
+JobEntry *JobsList::getJobById(int jobId) {
+    for(auto &job : job_list) {
+        if(job.job_id == jobId)
+            return &job;
+    }
+    return nullptr;
+}
+
+

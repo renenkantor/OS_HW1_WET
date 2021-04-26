@@ -78,31 +78,32 @@ public:
     void execute() override;
 };
 
+class JobEntry {
+public:
+    int job_id;
+    int process_id;
+};
+
+class JobsList {
+public:
+    std::vector<JobEntry> job_list;
+    /*void addJob(Command* cmd, bool isStopped = false);
+    void printJobsList();
+    void killAllJobs();
+    void removeFinishedJobs();
+
+    void removeJobById(int jobId);
+    JobEntry * getLastJob(int* lastJobId);
+    JobEntry *getLastStoppedJob(int *jobId);*/
+    JobEntry * getJobById(int jobId);
+    // TODO: Add extra methods or modify exisitng ones as needed
+};
+
 class QuitCommand : public BuiltInCommand {
 // TODO: Add your data members public:
     QuitCommand(const char* cmd_line, JobsList* jobs);
     virtual ~QuitCommand() {}
     void execute() override;
-};
-
-class JobsList {
-public:
-    class JobEntry {
-        // TODO: Add your data members
-    };
-    // TODO: Add your data members
-public:
-    JobsList();
-    ~JobsList();
-    void addJob(Command* cmd, bool isStopped = false);
-    void printJobsList();
-    void killAllJobs();
-    void removeFinishedJobs();
-    JobEntry * getJobById(int jobId);
-    void removeJobById(int jobId);
-    JobEntry * getLastJob(int* lastJobId);
-    JobEntry *getLastStoppedJob(int *jobId);
-    // TODO: Add extra methods or modify exisitng ones as needed
 };
 
 class JobsCommand : public BuiltInCommand {
@@ -144,11 +145,10 @@ public:
     void execute() override;
 };
 
-
 class SmallShell {
-
 public:
     SmallShell();
+    ~SmallShell();
     std::string prompt;
     std::string current_wd;
     std::string prev_wd;
@@ -163,9 +163,7 @@ public:
         // Instantiated on first use.
         return instance;
     }
-    ~SmallShell();
     void executeCommand(const char* cmd_line);
-
 };
 
 #endif //SMASH_COMMAND_H_

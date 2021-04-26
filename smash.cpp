@@ -6,7 +6,6 @@
 #include "signals.h"
 
 int main(int argc, char* argv[]) {
-    //Fuck You Man!!!
     if(signal(SIGTSTP , ctrlZHandler)==SIG_ERR) {
         perror("smash error: failed to set ctrl-Z handler");
     }
