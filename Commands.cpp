@@ -6,6 +6,8 @@
 #include <sys/wait.h>
 #include <iomanip>
 #include "Commands.h"
+#include <signal.h>
+#include <algorithm>
 
 using namespace std;
 
@@ -21,7 +23,7 @@ using namespace std;
 #endif
 
 #define WHITESPACE ' '
-#define PATH_MAX 4096
+#define PATH_MAX_CD 1024
 
 string _ltrim(const std::string& s)
 {
@@ -86,18 +88,18 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
   string cmd_s = _trim(string(cmd_line));
   string firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
   // These are no arguments commands.
-  if (firstWord.compare("pwd") == 0)
+  if (firstWord == "pwd")
       return new GetCurrDirCommand(cmd_line);
-  else if (firstWord.compare("showpid") == 0)
+  else if (firstWord == "showpid")
       return new ShowPidCommand(cmd_line);
-  //else if (firstWord.compare("jobs") == 0)
-  //    return new JobsCommand(cmd_line);
+  else if (firstWord.compare("jobs") == 0)
+      return new JobsCommand(cmd_line, &jobs);
   // These are commands with arguments.
-  else if (firstWord.compare("chprompt") == 0)
+  else if (firstWord == "chprompt")
       return new ChangePromptCommand(cmd_line);
-  else if (firstWord.compare("cd") == 0)
+  else if (firstWord == "cd")
       return new ChangeDirCommand(cmd_line);
-  else if (firstWord.compare("kill") == 0)
+  else if (firstWord == "kill")
       return new KillCommand(cmd_line, &jobs);
 
   return nullptr;
@@ -114,9 +116,7 @@ SmallShell::SmallShell() {
     SmallShell::prompt = "smash> ";
 }
 
-SmallShell::~SmallShell() {
-
-}
+SmallShell::~SmallShell() = default;
 
 Command::Command(const char *cmd_line) {
     this->cmd_line = cmd_line;
@@ -147,8 +147,8 @@ ShowPidCommand::ShowPidCommand(const char *cmd_line) : BuiltInCommand(nullptr, c
 }
 
 void GetCurrDirCommand::execute() {
-    char current_pwd[PATH_MAX];
-    if(getcwd(current_pwd, PATH_MAX) != nullptr)
+    char current_pwd[PATH_MAX_CD];
+    if(getcwd(current_pwd, PATH_MAX_CD) != nullptr)
         std::cout << current_pwd << std::endl;
     else
         std::cout << "error in pwd";
@@ -171,7 +171,7 @@ void ChangePromptCommand::execute() {
 void ChangeDirCommand::execute() {
     SmallShell& smash = SmallShell::getInstance();
     if(cmd_line == "cd -") {
-        if(smash.prev_wd == "")
+        if(smash.prev_wd.empty())
             perror("smash error: cd: OLDPWD not set");
         else {
             if(chdir(smash.prev_wd.c_str()) == 0)
@@ -183,7 +183,7 @@ void ChangeDirCommand::execute() {
         }
     } else {
         int spaces = 0;
-        string new_dir = _trim(_trim(cmd_line).substr(2, _trim(cmd_line).find_first_of("\n")));
+        string new_dir = _trim(_trim(cmd_line).substr(2, _trim(cmd_line).find_first_of('\n')));
         for (auto& letter : new_dir) {
             if (letter == ' ')
                 spaces++;
@@ -194,7 +194,7 @@ void ChangeDirCommand::execute() {
         else {
             if(chdir(new_dir.c_str()) == 0) {
                 smash.prev_wd = smash.current_wd;
-                smash.current_wd = new_dir.c_str();
+                smash.current_wd = new_dir;
             }
             else
                 perror("smash error: chdir failed");
@@ -246,6 +246,47 @@ JobEntry *JobsList::getJobById(int jobId) {
             return &job;
     }
     return nullptr;
+}
+
+
+
+
+JobsCommand::JobsCommand(const char *cmd_line, JobsList *jobs) : BuiltInCommand(nullptr, cmd_line) {
+
+
+}
+
+int JobEntry::calc_job_elapsed_time() const {
+    time_t *timer = nullptr;
+    return (int)difftime(time(timer), start_time);
+}
+
+JobEntry::JobEntry(int job_id, int process_id, std::string job_command) {
+    this->job_id = job_id;
+    this->process_id = process_id;
+    this->job_command = job_command;
+    time_t *timer = nullptr;
+    start_time = time(timer);
+}
+
+bool JobsComparor(const JobEntry& first, const JobEntry& second) {
+    return (first.job_id < second.job_id);
+}
+
+void JobsCommand::execute() {
+    SmallShell& smash = SmallShell::getInstance();
+    // removes all finished jobs from the list.
+    smash.jobs.job_list.erase(std::remove_if(smash.jobs.job_list.begin(), smash.jobs.job_list.end(), [](JobEntry const & cur_job) {
+        return cur_job.job_status == JobEntry::JOB_STATUS::FINISHED;
+    }),  smash.jobs.job_list.end());
+
+    std::sort(smash.jobs.job_list.begin(), smash.jobs.job_list.end(), JobsComparor);
+    for(auto &job : smash.jobs.job_list) {
+        if(job.job_status == JobEntry::JOB_STATUS::STOPPED)
+            std::cout << "[" << job.job_id << "]" << job.job_command << " : " << job.process_id << job.calc_job_elapsed_time() << "(stopped)" << std::endl;
+        else if (job.job_status == JobEntry::JOB_STATUS::UNFINISHED)
+            std::cout << "[" << job.job_id << "]" << job.job_command << " : " << job.process_id << job.calc_job_elapsed_time() << std::endl;
+    }
 }
 
 

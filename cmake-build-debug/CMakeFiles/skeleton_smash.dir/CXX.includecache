@@ -6,11 +6,41 @@
 
 #IncludeRegexTransform: 
 
+C:/Users/user/Desktop/OS_wet1/skeleton_smash/Commands.cpp
+unistd.h
+-
+string.h
+-
+iostream
+-
+vector
+-
+sstream
+-
+sys/wait.h
+-
+iomanip
+-
+Commands.h
+C:/Users/user/Desktop/OS_wet1/skeleton_smash/Commands.h
+signal.h
+-
+
 C:/Users/user/Desktop/OS_wet1/skeleton_smash/Commands.h
 vector
 -
 string
 -
+
+C:/Users/user/Desktop/OS_wet1/skeleton_smash/signals.cpp
+iostream
+-
+signal.h
+-
+signals.h
+C:/Users/user/Desktop/OS_wet1/skeleton_smash/signals.h
+Commands.h
+C:/Users/user/Desktop/OS_wet1/skeleton_smash/Commands.h
 
 C:/Users/user/Desktop/OS_wet1/skeleton_smash/signals.h
 
@@ -18,6 +48,8 @@ C:/Users/user/Desktop/OS_wet1/skeleton_smash/smash.cpp
 iostream
 -
 unistd.h
+-
+sys/wait.h
 -
 signal.h
 -

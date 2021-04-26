@@ -80,13 +80,19 @@ public:
 
 class JobEntry {
 public:
+    JobEntry(int job_id, int process_id, std::string job_command);
+    enum class JOB_STATUS {FOREGROUND, BACKGROUND, UNFINISHED, FINISHED, STOPPED} job_status;
     int job_id;
     int process_id;
+    time_t start_time;
+    std::string job_command;
+    int calc_job_elapsed_time() const;
 };
 
 class JobsList {
 public:
     std::vector<JobEntry> job_list;
+    static int maximum_job_id;
     /*void addJob(Command* cmd, bool isStopped = false);
     void printJobsList();
     void killAllJobs();
