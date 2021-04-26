@@ -1,0 +1,28 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+C:/Users/user/Desktop/OS_wet1/skeleton_smash/Commands.h
+vector
+-
+string
+-
+
+C:/Users/user/Desktop/OS_wet1/skeleton_smash/signals.h
+
+C:/Users/user/Desktop/OS_wet1/skeleton_smash/smash.cpp
+iostream
+-
+unistd.h
+-
+signal.h
+-
+Commands.h
+C:/Users/user/Desktop/OS_wet1/skeleton_smash/Commands.h
+signals.h
+C:/Users/user/Desktop/OS_wet1/skeleton_smash/signals.h
+
