@@ -22,7 +22,7 @@ using namespace std;
 #define FUNC_EXIT()
 #endif
 
-#define WHITESPACE ' '
+const std::string WHITESPACE = " \n\r\t\f\v";
 #define PATH_MAX_CD 1024
 
 string _ltrim(const std::string& s)
@@ -80,7 +80,7 @@ void _removeBackgroundSign(char* cmd_line) {
     cmd_line[str.find_last_not_of(WHITESPACE, idx) + 1] = 0;
 }
 
-/**
+/*
 * Creates and returns a pointer to Command class which matches the given command line (cmd_line)
 */
 Command * SmallShell::CreateCommand(const char* cmd_line) {
@@ -101,6 +101,8 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
       return new ChangeDirCommand(cmd_line);
   else if (firstWord == "kill")
       return new KillCommand(cmd_line, &jobs);
+  else if (firstWord == "fg")
+      return new ForegroundCommand(cmd_line, &jobs);
 
   return nullptr;
 }
@@ -112,39 +114,7 @@ void SmallShell::executeCommand(const char *cmd_line) {
     // Please note that you must fork smash process for some commands (e.g., external commands....)
 }
 
-SmallShell::SmallShell() {
-    SmallShell::prompt = "smash> ";
-}
-
-SmallShell::~SmallShell() = default;
-
-Command::Command(const char *cmd_line) {
-    this->cmd_line = cmd_line;
-}
-
-BuiltInCommand::BuiltInCommand(const char *cmdLine, const char *cmd_line) : Command(cmd_line) {
-
-}
-
-ChangePromptCommand::ChangePromptCommand(const char *cmd_line) : BuiltInCommand(nullptr, cmd_line) {
-
-}
-
-ChangeDirCommand::ChangeDirCommand(const char *cmd_line) : BuiltInCommand(nullptr, cmd_line) {
-
-}
-
-KillCommand::KillCommand(const char *cmd_line, JobsList *jobs) : BuiltInCommand(nullptr, cmd_line) {
-
-}
-
-GetCurrDirCommand::GetCurrDirCommand(const char *cmd_line) : BuiltInCommand(nullptr, cmd_line) {
-    // nothing to do here
-}
-
-ShowPidCommand::ShowPidCommand(const char *cmd_line) : BuiltInCommand(nullptr, cmd_line) {
-    // nothing to do here
-}
+SmallShell::SmallShell() : prompt("smash> "), prev_wd(""), current_fg_pid(-1), max_job_id(1), my_smash_pid(getpid()), curr_fg_command(nullptr) {};
 
 void GetCurrDirCommand::execute() {
     char current_pwd[PATH_MAX_CD];
@@ -248,12 +218,25 @@ JobEntry *JobsList::getJobById(int jobId) {
     return nullptr;
 }
 
+void JobsList::removeJobById(int jobId) {
+    int pos = 0;
+    for(pos = 0; pos < job_list.size(); pos++) {
+        if(job_list[pos].job_id == jobId) break;
+    }
+    job_list.erase(job_list.begin() + pos);
+}
 
+void JobsList::addJob(Command *cmd, bool isStopped) {
 
+}
 
-JobsCommand::JobsCommand(const char *cmd_line, JobsList *jobs) : BuiltInCommand(nullptr, cmd_line) {
+bool JobsComparor(const JobEntry& first, const JobEntry& second) {
+    return (first.job_id < second.job_id);
+}
 
-
+JobEntry *JobsList::getMaxJob() {
+    std::sort(job_list.begin(), job_list.end(), JobsComparor);
+    return &job_list.back();
 }
 
 int JobEntry::calc_job_elapsed_time() const {
@@ -261,32 +244,87 @@ int JobEntry::calc_job_elapsed_time() const {
     return (int)difftime(time(timer), start_time);
 }
 
-JobEntry::JobEntry(int job_id, int process_id, std::string job_command) {
+JobEntry::JobEntry(const int job_id, const int process_id, const string& job_command, const bool stopped, const bool finished) {
     this->job_id = job_id;
     this->process_id = process_id;
     this->job_command = job_command;
     time_t *timer = nullptr;
     start_time = time(timer);
+    this->is_stopped = stopped;
+    this->is_finished = finished;
 }
 
-bool JobsComparor(const JobEntry& first, const JobEntry& second) {
-    return (first.job_id < second.job_id);
+void JobEntry::continue_job() {
+    if(kill(process_id, SIGCONT) == -1)
+        perror("smash error: kill failed");
+    else
+        is_stopped = false;
 }
 
 void JobsCommand::execute() {
     SmallShell& smash = SmallShell::getInstance();
     // removes all finished jobs from the list.
     smash.jobs.job_list.erase(std::remove_if(smash.jobs.job_list.begin(), smash.jobs.job_list.end(), [](JobEntry const & cur_job) {
-        return cur_job.job_status == JobEntry::JOB_STATUS::FINISHED;
+        return cur_job.is_finished;
     }),  smash.jobs.job_list.end());
 
     std::sort(smash.jobs.job_list.begin(), smash.jobs.job_list.end(), JobsComparor);
     for(auto &job : smash.jobs.job_list) {
-        if(job.job_status == JobEntry::JOB_STATUS::STOPPED)
+        if(job.is_stopped)
             std::cout << "[" << job.job_id << "]" << job.job_command << " : " << job.process_id << job.calc_job_elapsed_time() << "(stopped)" << std::endl;
-        else if (job.job_status == JobEntry::JOB_STATUS::UNFINISHED)
+        else if (!job.is_finished)
             std::cout << "[" << job.job_id << "]" << job.job_command << " : " << job.process_id << job.calc_job_elapsed_time() << std::endl;
     }
 }
 
-
+void ForegroundCommand::execute() {
+    SmallShell& smash = SmallShell::getInstance();
+    JobEntry* job_to_handle;
+    char **args = new char*[COMMAND_MAX_ARGS];
+    int num_of_args = _parseCommandLine(cmd_line.c_str(), args);
+    int status;
+    // too many arguments.
+    if(num_of_args > 2) {
+        perror("smash error: fg: invalid arguments");
+        delete []  args;
+        return;
+    }
+    else if(num_of_args == 1) {
+        // no arguments but job list is emtpy.
+        if(smash.jobs.job_list.empty()) {
+            perror("smash error: fg: jobs list is empty");
+            delete []  args;
+            return;
+        }
+        // no arguments so get the maximum job.
+        else {
+            job_to_handle = smash.jobs.getMaxJob();
+            if(job_to_handle->is_stopped)
+                job_to_handle->continue_job();
+        }
+    }
+    // specific job handling.
+    else {
+        int job_id = stoi(args[1]);
+        job_to_handle = smash.jobs.getJobById(job_id);
+        // specific job does not exists in the list.
+        if(job_to_handle == nullptr) {
+            string error_str = "smash error: fg: job-id ";
+            error_str.append(string(args[1]));
+            error_str.append("does not exist");
+            perror(error_str.c_str());
+            delete []  args;
+            return;
+        }
+        else {
+            if(job_to_handle->is_stopped)
+                job_to_handle->continue_job();
+        }
+    }
+    smash.current_fg_pid = job_to_handle->process_id;
+    smash.curr_fg_command = smash.CreateCommand(job_to_handle->job_command.c_str());
+    cout <<job_to_handle->job_command +" : " + to_string(job_to_handle->process_id)<< std::endl;
+    waitpid(job_to_handle->process_id, &status, WUNTRACED);
+    smash.jobs.removeJobById(job_to_handle->job_id);
+    delete [] args;
+}
