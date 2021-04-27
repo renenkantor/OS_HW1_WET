@@ -8,7 +8,8 @@
 #include "Commands.h"
 #include <signal.h>
 #include <algorithm>
-
+#include <sys/stat.h>
+#include <fcntl.h>
 using namespace std;
 
 #if 0
@@ -77,6 +78,16 @@ void _removeBackgroundSign(char *cmd_line) {
     cmd_line[str.find_last_not_of(WHITESPACE, idx) + 1] = 0;
 }
 
+bool checkFirstRedirection(const char *cmd_line) {
+    string cmd_str = _trim(cmd_line);
+    return (cmd_str.find('>') != std::string::npos) || (cmd_str.find(">>") == std::string::npos);
+}
+
+bool checkSecondRedirection(const char *cmd_line) {
+    string cmd_str = _trim(cmd_line);
+    return (cmd_str.find(">>") != std::string::npos);
+}
+
 /*
 * Creates and returns a pointer to Command class which matches the given command line (cmd_line)
 */
@@ -85,7 +96,11 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
     string cmd_s = _trim(string(cmd_line));
     string firstWord = _trim(cmd_s.substr(0, cmd_s.find_first_of(" \n")));
     // These are no arguments commands.
-    if (firstWord == "pwd")
+    if (checkFirstRedirection(cmd_line))
+        return new RedirectionCommand(cmd_line, true, false);
+    else if (checkSecondRedirection(cmd_line))
+        return new RedirectionCommand(cmd_line, false, true);
+    else if (firstWord == "pwd")
         return new GetCurrDirCommand(cmd_line);
     else if (firstWord == "showpid")
         return new ShowPidCommand(cmd_line);
@@ -118,7 +133,8 @@ void SmallShell::executeCommand(const char *cmd_line) {
 }
 
 SmallShell::SmallShell() : prompt("smash> "), prev_wd(""), current_fg_pid(-1), max_job_id(1), my_smash_pid(getpid()),
-                           curr_fg_command(nullptr) {};
+                           curr_fg_command(nullptr) {}
+
 
 void GetCurrDirCommand::execute() {
     char current_pwd[PATH_MAX_CD];
@@ -411,3 +427,24 @@ void ExternalCommand::execute() {
 
 
 }
+
+void RedirectionCommand::execute() {
+    if (first_redirection)
+        execute_first();
+    else if (second_redirection)
+        execute_second();
+}
+
+void RedirectionCommand::execute_first() {
+    SmallShell &smash = SmallShell::getInstance();
+    int std_out = dup(STDOUT_FILENO);
+    string cmd_string = string(cmd_line);
+    string file_name = _trim(cmd_string.substr(cmd_string.find_last_of('>') + 1));
+    int fd = open(file_name.c_str(), O_CREAT | O_RDWR, 0666);
+}
+
+void RedirectionCommand::execute_second() {
+
+}
+
+

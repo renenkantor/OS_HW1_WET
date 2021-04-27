@@ -38,9 +38,13 @@ public:
 
 class RedirectionCommand : public Command {
 public:
-    explicit RedirectionCommand(const char* cmd_line) : Command(cmd_line) {} ;
+    explicit RedirectionCommand(const char* cmd_line, bool first, bool second) : Command(cmd_line), first_redirection(first), second_redirection(second) {} ;
+    bool first_redirection;
+    bool second_redirection;
     virtual ~RedirectionCommand() {}
     void execute() override;
+    void execute_first();
+    void execute_second();
     //void prepare() override;
     //void cleanup() override;
 };
@@ -173,6 +177,8 @@ public:
         return instance;
     }
     void executeCommand(const char* cmd_line);
+
+    bool checkRedirection(const char *line);
 };
 
 #endif //SMASH_COMMAND_H_
