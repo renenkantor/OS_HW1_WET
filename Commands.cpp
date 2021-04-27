@@ -164,12 +164,14 @@ void ChangeDirCommand::execute() {
         if (smash.prev_wd.empty())
             perror("smash error: cd: OLDPWD not set");
         else {
-            if (chdir(smash.prev_wd.c_str()) == 0)
-                smash.prev_wd = smash.current_wd;
+            if (chdir(smash.prev_wd.c_str()) == 0) {
+                char current_pwd[PATH_MAX_CD];
+                getcwd(current_pwd, PATH_MAX_CD);
+                smash.prev_wd = string(current_pwd);
+            }
             else {
                 perror("smash error: chdir failed");
             }
-
         }
     } else {
         int spaces = 0;
@@ -415,7 +417,7 @@ void QuitCommand::execute() {
     char **args = new char *[COMMAND_MAX_ARGS];
     int num_of_args = _parseCommandLine(cmd_line.c_str(), args);
     // with kill argument.
-    if (num_of_args >= 2 && args[1] == "kill") {
+    if (num_of_args >= 2 && (strcmp(args[1], "kill") == 0)) {
         std::cout << "smash: sending SIGKILL signal to " << jobs_list->job_list.size() << " jobs:" << std::endl;
         for (auto &it : jobs_list->job_list) {
             if (kill(it.process_id, SIGKILL) == -1)
