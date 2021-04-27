@@ -105,6 +105,7 @@ public:
     JobEntry *getLastStoppedJob(int *jobId);
     JobEntry * getJobById(int jobId);
     void removeJobById(int jobId);
+    void update_max_id();
 };
 
 class QuitCommand : public BuiltInCommand {
@@ -162,7 +163,7 @@ public:
     std::string current_wd;
     std::string prev_wd;
     JobsList jobs;
-    int max_job_id;
+    //int max_job_id;
     int current_fg_pid;
     int my_smash_pid;
     Command* curr_fg_command;

@@ -80,7 +80,7 @@ void _removeBackgroundSign(char *cmd_line) {
 
 bool checkFirstRedirection(const char *cmd_line) {
     string cmd_str = _trim(cmd_line);
-    return (cmd_str.find('>') != std::string::npos) || (cmd_str.find(">>") == std::string::npos);
+    return (cmd_str.find('>') != std::string::npos) && (cmd_str.find(">>") == std::string::npos);
 }
 
 bool checkSecondRedirection(const char *cmd_line) {
@@ -106,7 +106,6 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
         return new ShowPidCommand(cmd_line);
     else if (firstWord.compare("jobs") == 0)
         return new JobsCommand(cmd_line, &jobs);
-        // These are commands with arguments.
     else if (firstWord == "chprompt")
         return new ChangePromptCommand(cmd_line);
     else if (firstWord == "cd")
@@ -132,7 +131,7 @@ void SmallShell::executeCommand(const char *cmd_line) {
     delete cmd;
 }
 
-SmallShell::SmallShell() : prompt("smash> "), prev_wd(""), current_fg_pid(-1), max_job_id(1), my_smash_pid(getpid()),
+SmallShell::SmallShell() : prompt("smash> "), prev_wd(""), current_fg_pid(-1), my_smash_pid(getpid()),
                            curr_fg_command(nullptr) {}
 
 
@@ -160,6 +159,7 @@ void ChangePromptCommand::execute() {
 
 void ChangeDirCommand::execute() {
     SmallShell &smash = SmallShell::getInstance();
+    cmd_line = _trim(cmd_line);
     if (cmd_line == "cd -") {
         if (smash.prev_wd.empty())
             perror("smash error: cd: OLDPWD not set");
@@ -271,6 +271,15 @@ JobEntry *JobsList::getLastStoppedJob(int *jobId) {
     return getJobById(*jobId);
 }
 
+void JobsList::update_max_id() {
+    int cur_max = 1;
+    for (auto &it : job_list) {
+        if (it.job_id > cur_max)
+            cur_max = it.job_id;
+    }
+    max_job_id = cur_max;
+}
+
 int JobEntry::calc_job_elapsed_time() const {
     time_t *timer = nullptr;
     return (int) difftime(time(timer), start_time);
@@ -327,14 +336,14 @@ void ForegroundCommand::execute() {
             delete[]  args;
             return;
         }
-            // no arguments so get the maximum job.
+        // no arguments so get the maximum job.
         else {
             job_to_handle = smash.jobs.getMaxJob();
             if (job_to_handle->is_stopped)
                 job_to_handle->continue_job();
         }
     }
-        // specific job handling.
+    // specific job handling.
     else {
         int job_id = stoi(args[1]);
         job_to_handle = smash.jobs.getJobById(job_id);
@@ -354,8 +363,10 @@ void ForegroundCommand::execute() {
     smash.current_fg_pid = job_to_handle->process_id;
     smash.curr_fg_command = smash.CreateCommand(job_to_handle->job_command.c_str());
     cout << job_to_handle->job_command + " : " + to_string(job_to_handle->process_id) << std::endl;
+    // wait until job_to_handled is finished or someone has stopped it (WUNTRACED).
     waitpid(job_to_handle->process_id, &status, WUNTRACED);
     smash.jobs.removeJobById(job_to_handle->job_id);
+    smash.jobs.update_max_id();
     delete[] args;
 }
 
@@ -404,15 +415,16 @@ void QuitCommand::execute() {
     char **args = new char *[COMMAND_MAX_ARGS];
     int num_of_args = _parseCommandLine(cmd_line.c_str(), args);
     // with kill argument.
-    if (num_of_args >= 2 && args[2] == "kill") {
+    if (num_of_args >= 2 && args[1] == "kill") {
         std::cout << "smash: sending SIGKILL signal to " << jobs_list->job_list.size() << " jobs:" << std::endl;
         for (auto &it : jobs_list->job_list) {
             if (kill(it.process_id, SIGKILL) == -1)
                 perror("smash error: kill failed");
-            std::cout << it.process_id << ": " << it.job_command << std::endl;
+            else
+                std::cout << it.process_id << ": " << it.job_command << std::endl;
         }
     }
-        // without kill argument.
+    // without kill argument.
     else {
         for (auto &it : jobs_list->job_list) {
             if (kill(it.process_id, SIGKILL) == -1)
@@ -425,7 +437,6 @@ void QuitCommand::execute() {
 
 void ExternalCommand::execute() {
 
-
 }
 
 void RedirectionCommand::execute() {
@@ -436,15 +447,9 @@ void RedirectionCommand::execute() {
 }
 
 void RedirectionCommand::execute_first() {
-    SmallShell &smash = SmallShell::getInstance();
-    int std_out = dup(STDOUT_FILENO);
-    string cmd_string = string(cmd_line);
-    string file_name = _trim(cmd_string.substr(cmd_string.find_last_of('>') + 1));
-    int fd = open(file_name.c_str(), O_CREAT | O_RDWR, 0666);
+
 }
 
 void RedirectionCommand::execute_second() {
 
 }
-
-
