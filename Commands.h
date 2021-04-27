@@ -75,22 +75,24 @@ public:
 
 class JobEntry {
 public:
-    JobEntry(int job_id, int process_id, const std::string& job_command, bool stopped, bool finished);
-    bool is_stopped;
-    bool is_finished;
+    JobEntry(int job_id, int process_id, const std::string& job_command, time_t start_time, bool stopped, bool finished) :
+    job_id(job_id), process_id(process_id), job_command(job_command), start_time(start_time), is_stopped(stopped), is_finished(finished) {} ;
     int job_id;
     int process_id;
     time_t start_time;
     std::string job_command;
+    bool is_stopped;
+    bool is_finished;
     int calc_job_elapsed_time() const;
     void continue_job();
+    void stop_job();
 };
 
 class JobsList {
 public:
     std::vector<JobEntry> job_list;
-
-    void addJob(Command* cmd, bool isStopped = false);
+    int max_job_id;
+    void addJob(Command* cmd, int process_id);
     JobEntry * getMaxJob();
     //JobEntry * getLastJob(int* lastJobId);
     /*void printJobsList();

@@ -54,7 +54,7 @@ int _parseCommandLine(const char *cmd_line, char **args) {
     FUNC_EXIT()
 }
 
-bool _isBackgroundComamnd(const char *cmd_line) {
+bool _isBackgroundCommand(const char *cmd_line) {
     const string str(cmd_line);
     return str[str.find_last_not_of(WHITESPACE)] == '&';
 }
@@ -83,7 +83,7 @@ void _removeBackgroundSign(char *cmd_line) {
 Command *SmallShell::CreateCommand(const char *cmd_line) {
 
     string cmd_s = _trim(string(cmd_line));
-    string firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
+    string firstWord = _trim(cmd_s.substr(0, cmd_s.find_first_of(" \n")));
     // These are no arguments commands.
     if (firstWord == "pwd")
         return new GetCurrDirCommand(cmd_line);
@@ -100,7 +100,12 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
         return new KillCommand(cmd_line, &jobs);
     else if (firstWord == "fg")
         return new ForegroundCommand(cmd_line, &jobs);
-
+    else if (firstWord == "bg")
+        return new BackgroundCommand(cmd_line, &jobs);
+    else if (firstWord == "quit")
+        return new QuitCommand(cmd_line, &jobs);
+    else
+        return new ExternalCommand(cmd_line);
     return nullptr;
 }
 
@@ -109,6 +114,7 @@ void SmallShell::executeCommand(const char *cmd_line) {
     Command *cmd = CreateCommand(cmd_line);
     cmd->execute();
     // Please note that you must fork smash process for some commands (e.g., external commands....)
+    delete cmd;
 }
 
 SmallShell::SmallShell() : prompt("smash> "), prev_wd(""), current_fg_pid(-1), max_job_id(1), my_smash_pid(getpid()),
@@ -123,7 +129,7 @@ void GetCurrDirCommand::execute() {
 }
 
 void ShowPidCommand::execute() {
-    std::cout << "smash pid is" << getpid() << std::endl;
+    std::cout << "smash pid is " << getpid() << std::endl;
 }
 
 void ChangePromptCommand::execute() {
@@ -215,15 +221,18 @@ JobEntry *JobsList::getJobById(int jobId) {
 }
 
 void JobsList::removeJobById(int jobId) {
-    int pos = 0;
+    int pos;
     for (pos = 0; pos < job_list.size(); pos++) {
         if (job_list[pos].job_id == jobId) break;
     }
     job_list.erase(job_list.begin() + pos);
 }
 
-void JobsList::addJob(Command *cmd, bool isStopped) {
-
+void JobsList::addJob(Command *cmd, int process_id) {
+    time_t start_time = time(nullptr);
+    JobEntry current_job(max_job_id + 1, process_id, cmd->cmd_line, start_time, false, false);
+    max_job_id++;
+    this->job_list.push_back(current_job);
 }
 
 bool JobsComparor(const JobEntry &first, const JobEntry &second) {
@@ -251,22 +260,18 @@ int JobEntry::calc_job_elapsed_time() const {
     return (int) difftime(time(timer), start_time);
 }
 
-JobEntry::JobEntry(const int job_id, const int process_id, const string &job_command, const bool stopped,
-                   const bool finished) {
-    this->job_id = job_id;
-    this->process_id = process_id;
-    this->job_command = job_command;
-    time_t *timer = nullptr;
-    start_time = time(timer);
-    this->is_stopped = stopped;
-    this->is_finished = finished;
-}
-
 void JobEntry::continue_job() {
     if (kill(process_id, SIGCONT) == -1)
         perror("smash error: kill failed");
     else
         is_stopped = false;
+}
+
+void JobEntry::stop_job() {
+    if (kill(process_id, SIGSTOP) == -1)
+        perror("smash error: kill failed");
+    else
+        is_stopped = true;
 }
 
 void JobsCommand::execute() {
@@ -376,4 +381,33 @@ void BackgroundCommand::execute() {
     }
     job_to_handle->continue_job();
     delete[] args;
+}
+
+void QuitCommand::execute() {
+    SmallShell &smash = SmallShell::getInstance();
+    char **args = new char *[COMMAND_MAX_ARGS];
+    int num_of_args = _parseCommandLine(cmd_line.c_str(), args);
+    // with kill argument.
+    if (num_of_args >= 2 && args[2] == "kill") {
+        std::cout << "smash: sending SIGKILL signal to " << jobs_list->job_list.size() << " jobs:" << std::endl;
+        for (auto &it : jobs_list->job_list) {
+            if (kill(it.process_id, SIGKILL) == -1)
+                perror("smash error: kill failed");
+            std::cout << it.process_id << ": " << it.job_command << std::endl;
+        }
+    }
+        // without kill argument.
+    else {
+        for (auto &it : jobs_list->job_list) {
+            if (kill(it.process_id, SIGKILL) == -1)
+                perror("smash error: kill failed");
+        }
+    }
+    delete[] args;
+    exit(0);
+}
+
+void ExternalCommand::execute() {
+
+
 }
