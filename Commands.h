@@ -95,8 +95,8 @@ public:
     //JobEntry * getLastJob(int* lastJobId);
     /*void printJobsList();
     void killAllJobs();
-    void removeFinishedJobs();
-    JobEntry *getLastStoppedJob(int *jobId);*/
+    void removeFinishedJobs();*/
+    JobEntry *getLastStoppedJob(int *jobId);
     JobEntry * getJobById(int jobId);
     void removeJobById(int jobId);
 };
