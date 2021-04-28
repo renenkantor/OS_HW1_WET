@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <sys/stat.h>
 #include <fcntl.h>
+
 using namespace std;
 
 #if 0
@@ -162,15 +163,14 @@ void ChangeDirCommand::execute() {
     cmd_line = _trim(cmd_line);
     if (cmd_line == "cd -") {
         if (smash.prev_wd.empty())
-            perror("smash error: cd: OLDPWD not set");
+            cerr << "smash error: cd: OLDPWD not set" << endl;
         else {
             if (chdir(smash.prev_wd.c_str()) == 0) {
                 char current_pwd[PATH_MAX_CD];
                 getcwd(current_pwd, PATH_MAX_CD);
                 smash.prev_wd = string(current_pwd);
-            }
-            else {
-                perror("smash error: chdir failed");
+            } else {
+                cerr << "smash error: chdir failed" << endl;
             }
         }
     } else {
@@ -182,28 +182,28 @@ void ChangeDirCommand::execute() {
         }
         // if there are any spaces after all the trimming it means two arguments.
         if (spaces != 0)
-            perror("smash error: cd: too many arguments");
+            cerr << "smash error: cd: too many arguments" << endl;
         else {
             if (chdir(new_dir.c_str()) == 0) {
                 smash.prev_wd = smash.current_wd;
                 smash.current_wd = new_dir;
             } else
-                perror("smash error: chdir failed");
+                cerr << "smash error: chdir failed" << endl;
         }
     }
 }
 
 void KillCommand::execute() {
     SmallShell &smash = SmallShell::getInstance();
-    int job_id = -1, signum = -1, i = 0;
+    int job_id = -1, signum = -1;
     cmd_line = _trim(cmd_line);
     cmd_line = _trim(cmd_line.substr(4));
     if (cmd_line[0] != '-')
-        perror("smash error: kill: invalid arguments");
+        cerr << "smash error: kill: invalid arguments" << endl;
     else {
         signum = stoi(_trim(cmd_line.substr(1, 2)));
         if (signum < 1 || signum > 64)
-            perror("smash error: kill failed");
+            cerr << "smash error: kill failed" << endl;
         else {
             if (signum < 10)
                 cmd_line = _trim(cmd_line.substr(2));
@@ -211,7 +211,7 @@ void KillCommand::execute() {
                 cmd_line = _trim(cmd_line.substr(3));
             for (auto l : cmd_line) {
                 if (!isdigit(l)) {
-                    perror("smash error: kill: invalid arguments");
+                    cerr << "smash error: kill: invalid arguments" << endl;
                     return;
                 }
             }
@@ -221,10 +221,10 @@ void KillCommand::execute() {
                 string job_id_error = "smash error: kill: job-id ";
                 job_id_error.append(to_string(job_id));
                 job_id_error.append(" does not exist");
-                perror(job_id_error.c_str());
+                cerr << job_id_error.c_str() << endl;
             } else {
                 if (kill(job_to_handle->process_id, signum) == -1)
-                    perror("smash error: kill failed");
+                    cerr << "smash error: kill failed" << endl;
             }
         }
     }
@@ -239,7 +239,7 @@ JobEntry *JobsList::getJobById(int jobId) {
 }
 
 void JobsList::removeJobById(int jobId) {
-    int pos;
+    unsigned int pos;
     for (pos = 0; pos < job_list.size(); pos++) {
         if (job_list[pos].job_id == jobId) break;
     }
@@ -289,14 +289,14 @@ int JobEntry::calc_job_elapsed_time() const {
 
 void JobEntry::continue_job() {
     if (kill(process_id, SIGCONT) == -1)
-        perror("smash error: kill failed");
+        cerr << "smash error: kill failed" << endl;
     else
         is_stopped = false;
 }
 
 void JobEntry::stop_job() {
     if (kill(process_id, SIGSTOP) == -1)
-        perror("smash error: kill failed");
+        cerr << "smash error: kill failed" << endl;
     else
         is_stopped = true;
 }
@@ -328,24 +328,24 @@ void ForegroundCommand::execute() {
     int status;
     // too many arguments.
     if (num_of_args > 2) {
-        perror("smash error: fg: invalid arguments");
+        cerr << "smash error: fg: invalid arguments" << endl;
         delete[]  args;
         return;
     } else if (num_of_args == 1) {
         // no arguments but job list is emtpy.
         if (smash.jobs.job_list.empty()) {
-            perror("smash error: fg: jobs list is empty");
+            cerr << "smash error: fg: jobs list is empty" << endl;
             delete[]  args;
             return;
         }
-        // no arguments so get the maximum job.
+            // no arguments so get the maximum job.
         else {
             job_to_handle = smash.jobs.getMaxJob();
             if (job_to_handle->is_stopped)
                 job_to_handle->continue_job();
         }
     }
-    // specific job handling.
+        // specific job handling.
     else {
         int job_id = stoi(args[1]);
         job_to_handle = smash.jobs.getJobById(job_id);
@@ -354,7 +354,7 @@ void ForegroundCommand::execute() {
             string error_str = "smash error: fg: job-id ";
             error_str.append(string(args[1]));
             error_str.append("does not exist");
-            perror(error_str.c_str());
+            cerr << error_str.c_str() << endl;
             delete[]  args;
             return;
         } else {
@@ -378,13 +378,13 @@ void BackgroundCommand::execute() {
     int num_of_args = _parseCommandLine(cmd_line.c_str(), args);
     JobEntry *job_to_handle;
     if (num_of_args > 2) {
-        perror("smash error: bg: invalid arguments");
+        cerr << "smash error: bg: invalid arguments" << endl;
         delete[] args;
         return;
     } else if (num_of_args == 1) {
         job_to_handle = smash.jobs.getLastStoppedJob(nullptr);
         if (job_to_handle == nullptr) {
-            perror("smash error: bg: there is no stopped jobs to resume");
+            cerr << "smash error: bg: there is no stopped jobs to resume" << endl;
             delete[] args;
             return;
         }
@@ -395,7 +395,7 @@ void BackgroundCommand::execute() {
             string error_str = "smash error: bg: job-id ";
             error_str.append(string(args[1]));
             error_str.append("does not exist");
-            perror(error_str.c_str());
+            cerr << error_str.c_str() << endl;
             delete[] args;
             return;
         }
@@ -403,7 +403,7 @@ void BackgroundCommand::execute() {
             string error_str = "smash error: bg: job-id ";
             error_str.append(string(args[1]));
             error_str.append("is already running in the background");
-            perror(error_str.c_str());
+            cerr << error_str.c_str() << endl;
             delete[] args;
             return;
         }
@@ -413,7 +413,6 @@ void BackgroundCommand::execute() {
 }
 
 void QuitCommand::execute() {
-    SmallShell &smash = SmallShell::getInstance();
     char **args = new char *[COMMAND_MAX_ARGS];
     int num_of_args = _parseCommandLine(cmd_line.c_str(), args);
     // with kill argument.
@@ -421,16 +420,16 @@ void QuitCommand::execute() {
         std::cout << "smash: sending SIGKILL signal to " << jobs_list->job_list.size() << " jobs:" << std::endl;
         for (auto &it : jobs_list->job_list) {
             if (kill(it.process_id, SIGKILL) == -1)
-                perror("smash error: kill failed");
+                cerr << "smash error: kill failed" << endl;
             else
                 std::cout << it.process_id << ": " << it.job_command << std::endl;
         }
     }
-    // without kill argument.
+        // without kill argument.
     else {
         for (auto &it : jobs_list->job_list) {
             if (kill(it.process_id, SIGKILL) == -1)
-                perror("smash error: kill failed");
+                cerr << "smash error: kill failed" << endl;
         }
     }
     delete[] args;
@@ -442,16 +441,46 @@ void ExternalCommand::execute() {
 }
 
 void RedirectionCommand::execute() {
+    SmallShell &smash = SmallShell::getInstance();
+    int prev_out = dup(STDOUT_FILENO);
+    if (prev_out == -1) {
+        perror("smash error: dup failed");
+        return;
+    }
     if (first_redirection)
         execute_first();
     else if (second_redirection)
         execute_second();
+
+    // after we redirected the output file, we execute the command.
+    cmd_line = _trim(cmd_line.erase(cmd_line.find_first_of('>'), cmd_line.size()));
+    smash.executeCommand(cmd_line.c_str());
+    if(dup2(prev_out, STDOUT_FILENO) == -1)
+        perror("smash error: dup2 failed");
 }
 
 void RedirectionCommand::execute_first() {
-
+    cmd_line = _trim(cmd_line);
+    int red_pos = cmd_line.find_first_of('>') + 1;
+    string file_name = _trim(cmd_line.substr(red_pos));
+    int fd = creat(file_name.c_str(), 0666);
+    if (fd == -1)
+        perror("smash error: open failed");
+    if (dup2(fd, STDOUT_FILENO == -1))
+        perror("smash error: dup2 failed");
+    if (close(fd) == -1)
+        perror("smash error: close failed");
 }
 
 void RedirectionCommand::execute_second() {
-
+    cmd_line = _trim(cmd_line);
+    int red_pos = cmd_line.find_last_of('>') + 1;
+    string file_name = _trim(cmd_line.substr(red_pos));
+    int fd = open(file_name.c_str(), O_CREAT | O_APPEND | O_RDWR, 0666);
+    if (fd == -1)
+        perror("smash error: open failed");
+    if (close(STDOUT_FILENO) == -1)
+        perror("smash error: close failed");
+    if (dup2(fd, STDOUT_FILENO == -1))
+        perror("smash error: dup2 failed");
 }

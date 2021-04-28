@@ -83,8 +83,8 @@ public:
     job_id(job_id), process_id(process_id), job_command(job_command), start_time(start_time), is_stopped(stopped), is_finished(finished) {} ;
     int job_id;
     int process_id;
-    time_t start_time;
     std::string job_command;
+    time_t start_time;
     bool is_stopped;
     bool is_finished;
     int calc_job_elapsed_time() const;
