@@ -1,3 +1,6 @@
+#pragma clang diagnostic push
+#pragma ide diagnostic ignored "modernize-pass-by-value"
+#pragma ide diagnostic ignored "modernize-use-override"
 #ifndef SMASH_COMMAND_H_
 #define SMASH_COMMAND_H_
 
@@ -12,8 +15,6 @@ public:
     std::string cmd_line;
     virtual ~Command() = default;
     virtual void execute() = 0;
-    //virtual void prepare();
-    //virtual void cleanup();
 };
 
 class BuiltInCommand : public Command {
@@ -25,14 +26,14 @@ public:
 class ExternalCommand : public Command {
 public:
     explicit ExternalCommand(const char* cmd_line) : Command(cmd_line) {} ;
-    virtual ~ExternalCommand() {}
+    virtual ~ExternalCommand() = default;
     void execute() override;
 };
 
 class PipeCommand : public Command {
 public:
     explicit PipeCommand(const char* cmd_line) : Command(cmd_line) {} ;
-    virtual ~PipeCommand() {}
+    virtual ~PipeCommand() = default;
     void execute() override;
 };
 
@@ -41,39 +42,37 @@ public:
     explicit RedirectionCommand(const char* cmd_line, bool first, bool second) : Command(cmd_line), first_redirection(first), second_redirection(second) {} ;
     bool first_redirection;
     bool second_redirection;
-    virtual ~RedirectionCommand() {}
+    virtual ~RedirectionCommand() = default;
     void execute() override;
     void execute_first();
     void execute_second();
-    //void prepare() override;
-    //void cleanup() override;
 };
 
 class ChangePromptCommand : public BuiltInCommand {
 public:
     explicit ChangePromptCommand(const char* cmd_line) : BuiltInCommand(cmd_line) {} ;
-    virtual ~ChangePromptCommand() {}
+    virtual ~ChangePromptCommand() = default;
     void execute() override;
 };
 
 class ChangeDirCommand : public BuiltInCommand {
 public:
     explicit ChangeDirCommand(const char* cmd_line) : BuiltInCommand(cmd_line) {} ;
-    virtual ~ChangeDirCommand() {}
+    virtual ~ChangeDirCommand() = default;
     void execute() override;
 };
 
 class GetCurrDirCommand : public BuiltInCommand {
 public:
     explicit GetCurrDirCommand(const char* cmd_line) : BuiltInCommand(cmd_line) {} ;
-    virtual ~GetCurrDirCommand() {}
+    virtual ~GetCurrDirCommand() = default;
     void execute() override;
 };
 
 class ShowPidCommand : public BuiltInCommand {
 public:
     explicit ShowPidCommand(const char* cmd_line) : BuiltInCommand(cmd_line) {} ;
-    virtual ~ShowPidCommand() {}
+    virtual ~ShowPidCommand() = default;
     void execute() override;
 };
 
@@ -112,7 +111,7 @@ class QuitCommand : public BuiltInCommand {
 public:
     QuitCommand(const char* cmd_line, JobsList* jobs) : BuiltInCommand(cmd_line), jobs_list(jobs) {} ;
     JobsList* jobs_list;
-    virtual ~QuitCommand() {}
+    virtual ~QuitCommand() = default;
     void execute() override;
 };
 
@@ -120,7 +119,7 @@ class JobsCommand : public BuiltInCommand {
 public:
     JobsCommand(const char* cmd_line, JobsList* jobs) : BuiltInCommand(cmd_line), jobs_list(jobs) {} ;
     JobsList* jobs_list;
-    virtual ~JobsCommand() {}
+    virtual ~JobsCommand() = default;
     void execute() override;
 };
 
@@ -128,7 +127,7 @@ class KillCommand : public BuiltInCommand {
 public:
     KillCommand(const char* cmd_line, JobsList* jobs) : BuiltInCommand(cmd_line), jobs_list(jobs) {} ;
     JobsList* jobs_list;
-    virtual ~KillCommand() {}
+    virtual ~KillCommand() = default;
     void execute() override;
 };
 
@@ -136,7 +135,7 @@ class ForegroundCommand : public BuiltInCommand {
 public:
     ForegroundCommand(const char* cmd_line, JobsList* jobs) : BuiltInCommand(cmd_line), jobs_list(jobs) {} ;
     JobsList* jobs_list;
-    virtual ~ForegroundCommand() {}
+    virtual ~ForegroundCommand() = default;
     void execute() override;
 };
 
@@ -144,14 +143,14 @@ class BackgroundCommand : public BuiltInCommand {
 public:
     BackgroundCommand(const char* cmd_line, JobsList* jobs) : BuiltInCommand(cmd_line), jobs_list(jobs) {} ;
     JobsList* jobs_list;
-    virtual ~BackgroundCommand() {}
+    virtual ~BackgroundCommand() = default;
     void execute() override;
 };
 
 class CatCommand : public BuiltInCommand {
 public:
     explicit CatCommand(const char* cmd_line) : BuiltInCommand(cmd_line) {} ;
-    virtual ~CatCommand() {}
+    virtual ~CatCommand() = default;
     void execute() override;
 };
 
@@ -178,8 +177,7 @@ public:
         return instance;
     }
     void executeCommand(const char* cmd_line);
-
-    bool checkRedirection(const char *line);
 };
 
 #endif //SMASH_COMMAND_H_
+#pragma clang diagnostic pop

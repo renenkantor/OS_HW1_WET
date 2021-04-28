@@ -105,7 +105,7 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
         return new GetCurrDirCommand(cmd_line);
     else if (firstWord == "showpid")
         return new ShowPidCommand(cmd_line);
-    else if (firstWord.compare("jobs") == 0)
+    else if (firstWord == "jobs")
         return new JobsCommand(cmd_line, &jobs);
     else if (firstWord == "chprompt")
         return new ChangePromptCommand(cmd_line);
@@ -139,13 +139,13 @@ SmallShell::SmallShell() : prompt("smash> "), prev_wd(""), current_fg_pid(-1), m
 void GetCurrDirCommand::execute() {
     char current_pwd[PATH_MAX_CD];
     if (getcwd(current_pwd, PATH_MAX_CD) != nullptr)
-        std::cout << current_pwd << std::endl;
+        cout << current_pwd << endl;
     else
-        std::cout << "error in pwd";
+        cout << "error in pwd";
 }
 
 void ShowPidCommand::execute() {
-    std::cout << "smash pid is " << getpid() << std::endl;
+    cout << "smash pid is " << getpid() << endl;
 }
 
 void ChangePromptCommand::execute() {
@@ -312,11 +312,11 @@ void JobsCommand::execute() {
     std::sort(smash.jobs.job_list.begin(), smash.jobs.job_list.end(), JobsComparor);
     for (auto &job : smash.jobs.job_list) {
         if (job.is_stopped)
-            std::cout << "[" << job.job_id << "]" << job.job_command << " : " << job.process_id
-                      << job.calc_job_elapsed_time() << "(stopped)" << std::endl;
+            cout << "[" << job.job_id << "]" << job.job_command << " : " << job.process_id
+                      << job.calc_job_elapsed_time() << "(stopped)" << endl;
         else if (!job.is_finished)
-            std::cout << "[" << job.job_id << "]" << job.job_command << " : " << job.process_id
-                      << job.calc_job_elapsed_time() << std::endl;
+            cout << "[" << job.job_id << "]" << job.job_command << " : " << job.process_id
+                      << job.calc_job_elapsed_time() << endl;
     }
 }
 
@@ -364,7 +364,7 @@ void ForegroundCommand::execute() {
     }
     smash.current_fg_pid = job_to_handle->process_id;
     smash.curr_fg_command = smash.CreateCommand(job_to_handle->job_command.c_str());
-    cout << job_to_handle->job_command + " : " + to_string(job_to_handle->process_id) << std::endl;
+    cout << job_to_handle->job_command + " : " + to_string(job_to_handle->process_id) << endl;
     // wait until job_to_handled is finished or someone has stopped it (WUNTRACED).
     waitpid(job_to_handle->process_id, &status, WUNTRACED);
     smash.jobs.removeJobById(job_to_handle->job_id);
@@ -417,12 +417,12 @@ void QuitCommand::execute() {
     int num_of_args = _parseCommandLine(cmd_line.c_str(), args);
     // with kill argument.
     if (num_of_args >= 2 && (strcmp(args[1], "kill") == 0)) {
-        std::cout << "smash: sending SIGKILL signal to " << jobs_list->job_list.size() << " jobs:" << std::endl;
+        cout << "smash: sending SIGKILL signal to " << jobs_list->job_list.size() << " jobs:" << endl;
         for (auto &it : jobs_list->job_list) {
             if (kill(it.process_id, SIGKILL) == -1)
                 cerr << "smash error: kill failed" << endl;
             else
-                std::cout << it.process_id << ": " << it.job_command << std::endl;
+                cout << it.process_id << ": " << it.job_command << endl;
         }
     }
         // without kill argument.
