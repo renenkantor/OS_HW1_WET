@@ -24,84 +24,88 @@ using namespace std;
 #define FUNC_EXIT()
 #endif
 
-const std::string WHITESPACE = " \n\r\t\f\v";
-#define PATH_MAX_CD 1024
-#define BUFFER_SIZE 1024
-
-string _ltrim(const std::string &s) {
+string _ltrim(const string &s) {
     size_t start = s.find_first_not_of(WHITESPACE);
-    return (start == std::string::npos) ? "" : s.substr(start);
+    return (start == string::npos) ? "" : s.substr(start);
 }
 
-string _rtrim(const std::string &s) {
+string _rtrim(const string &s) {
     size_t end = s.find_last_not_of(WHITESPACE);
-    return (end == std::string::npos) ? "" : s.substr(0, end + 1);
+    return (end == string::npos) ? "" : s.substr(0, end + 1);
 }
 
-string _trim(const std::string &s) {
+string _trim(const string &s) {
     return _rtrim(_ltrim(s));
 }
 
-int _parseCommandLine(const char *cmd_line, char **args) {
+int _parseCommandLine(const string& cmd_line, vector<string>& args) {
     FUNC_ENTRY()
-    int i = 0;
-    std::istringstream iss(_trim(string(cmd_line)).c_str());
-    for (std::string s; iss >> s;) {
-        args[i] = (char *) malloc(s.length() + 1);
-        memset(args[i], 0, s.length() + 1);
-        strcpy(args[i], s.c_str());
-        args[++i] = NULL;
-    }
-    return i;
-
+    string buf;
+    stringstream ss(cmd_line);
+    vector<std::string> tokens;
+    while (ss >> buf)
+        args.push_back(buf);
+    return args.size();
     FUNC_EXIT()
 }
 
-bool _isBackgroundCommand(const char *cmd_line) {
-    const string str(cmd_line);
-    return str[str.find_last_not_of(WHITESPACE)] == '&';
+bool _isBackgroundCommand(const string& cmd_line) {
+    return cmd_line[cmd_line.find_last_not_of(WHITESPACE)] == '&';
 }
 
-void _removeBackgroundSign(char *cmd_line) {
-    const string str(cmd_line);
+string _removeBackgroundSign(string cmd_line) {
     // find last character other than spaces
-    unsigned int idx = str.find_last_not_of(WHITESPACE);
+    unsigned int idx = cmd_line.find_last_not_of(WHITESPACE);
     // if all characters are spaces then return
     if (idx == string::npos) {
-        return;
+        return cmd_line;
     }
     // if the command line does not end with & then return
     if (cmd_line[idx] != '&') {
-        return;
+        return cmd_line;
     }
     // replace the & (background sign) with space and then remove all tailing spaces.
     cmd_line[idx] = ' ';
     // truncate the command line string up to the last non-space character
-    cmd_line[str.find_last_not_of(WHITESPACE, idx) + 1] = 0;
+    cmd_line[cmd_line.find_last_not_of(WHITESPACE, idx) + 1] = 0;
+    return cmd_line;
 }
 
-bool checkFirstRedirection(const char *cmd_line) {
+// redirection >
+bool checkFirstRedirection(const string cmd_line) {
     string cmd_str = _trim(cmd_line);
-    return (cmd_str.find('>') != std::string::npos) && (cmd_str.find(">>") == std::string::npos);
+    return (cmd_str.find('>') != string::npos) && (cmd_str.find(">>") == string::npos);
 }
 
-bool checkSecondRedirection(const char *cmd_line) {
+// redirection >>
+bool checkSecondRedirection(const string cmd_line) {
     string cmd_str = _trim(cmd_line);
-    return (cmd_str.find(">>") != std::string::npos);
+    return (cmd_str.find(">>") != string::npos);
 }
 
-/*
-* Creates and returns a pointer to Command class which matches the given command line (cmd_line)
-*/
-Command *SmallShell::CreateCommand(const char *cmd_line) {
+// pipe |
+bool checkFirstPipe(const string cmd_line) {
+    string cmd_str = _trim(cmd_line);
+    return (cmd_str.find('|') != string::npos) && (cmd_str.find("|&") == string::npos);
+}
 
-    string cmd_s = _trim(string(cmd_line));
-    string firstWord = _trim(cmd_s.substr(0, cmd_s.find_first_of(" \n")));
-    // These are no arguments commands.
+// pipe |&
+bool checkSecondPipe(const string& cmd_line) {
+    string cmd_str = _trim(cmd_line);
+    return (cmd_str.find("|&") != string::npos);
+}
+
+Command *SmallShell::CreateCommand(string& cmd_line) {
+
+    string firstWord = _trim(cmd_line.substr(0, cmd_line.find_first_of(" \n")));
     if (checkFirstRedirection(cmd_line))
         return new RedirectionCommand(cmd_line, true, false);
     else if (checkSecondRedirection(cmd_line))
         return new RedirectionCommand(cmd_line, false, true);
+    else if (checkFirstPipe(cmd_line))
+        return new PipeCommand(cmd_line, true, false);
+    else if (checkSecondPipe(cmd_line))
+        return new PipeCommand(cmd_line, false, true);
     else if (firstWord == "pwd")
         return new GetCurrDirCommand(cmd_line);
     else if (firstWord == "showpid")
@@ -127,8 +131,8 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
     return nullptr;
 }
 
-void SmallShell::executeCommand(const char *cmd_line) {
-    // TODO: Add your implementation here
+void SmallShell::executeCommand(string& cmd_line) {
+    cmd_line = _trim(cmd_line);
     Command *cmd = CreateCommand(cmd_line);
     cmd->execute();
     // Please note that you must fork smash process for some commands (e.g., external commands....)
@@ -139,9 +143,9 @@ SmallShell::SmallShell() : prompt("smash> "), prev_wd(""), current_fg_pid(-1), m
                            curr_fg_command(nullptr) {
     char current_pwd[PATH_MAX_CD];
     if (getcwd(current_pwd, PATH_MAX_CD) != nullptr)
-        current_wd=current_pwd;
+        current_wd = current_pwd;
     else
-    cout << "error in pwd";
+        cout << "error in pwd";
 }
 
 
@@ -169,7 +173,6 @@ void ChangePromptCommand::execute() {
 
 void ChangeDirCommand::execute() {
     SmallShell &smash = SmallShell::getInstance();
-    cmd_line = _trim(cmd_line);
     if (cmd_line == "cd -") {
         if (smash.prev_wd.empty())
             perror("smash error: cd: OLDPWD not set");
@@ -204,7 +207,6 @@ void ChangeDirCommand::execute() {
 void KillCommand::execute() {
     SmallShell &smash = SmallShell::getInstance();
     int job_id = -1, signum = -1;
-    cmd_line = _trim(cmd_line);
     cmd_line = _trim(cmd_line.substr(4));
     if (cmd_line[0] != '-')
         perror("smash error: kill: invalid arguments");
@@ -331,19 +333,17 @@ void JobsCommand::execute() {
 void ForegroundCommand::execute() {
     SmallShell &smash = SmallShell::getInstance();
     JobEntry *job_to_handle;
-    char **args = new char *[COMMAND_MAX_ARGS];
-    int num_of_args = _parseCommandLine(cmd_line.c_str(), args);
+    vector<string> args;
+    int num_of_args = _parseCommandLine(cmd_line, args);
     int status;
     // too many arguments.
     if (num_of_args > 2) {
         perror("smash error: fg: invalid arguments");
-        delete[]  args;
         return;
     } else if (num_of_args == 1) {
         // no arguments but job list is emtpy.
         if (smash.jobs.job_list.empty()) {
             perror("smash error: fg: jobs list is empty");
-            delete[]  args;
             return;
         }
             // no arguments so get the maximum job.
@@ -363,7 +363,6 @@ void ForegroundCommand::execute() {
             error_str.append(string(args[1]));
             error_str.append("does not exist");
             perror(error_str.c_str());
-            delete[]  args;
             return;
         } else {
             if (job_to_handle->is_stopped)
@@ -371,29 +370,26 @@ void ForegroundCommand::execute() {
         }
     }
     smash.current_fg_pid = job_to_handle->process_id;
-    smash.curr_fg_command = smash.CreateCommand(job_to_handle->job_command.c_str());
+    smash.curr_fg_command = smash.CreateCommand(job_to_handle->job_command);
     cout << job_to_handle->job_command + " : " + to_string(job_to_handle->process_id) << endl;
     // wait until job_to_handled is finished or someone has stopped it (WUNTRACED).
     waitpid(job_to_handle->process_id, &status, WUNTRACED);
     smash.jobs.removeJobById(job_to_handle->job_id);
     smash.jobs.update_max_id();
-    delete[] args;
 }
 
 void BackgroundCommand::execute() {
     SmallShell &smash = SmallShell::getInstance();
-    char **args = new char *[COMMAND_MAX_ARGS];
-    int num_of_args = _parseCommandLine(cmd_line.c_str(), args);
+    vector<string> args;
+    int num_of_args = _parseCommandLine(cmd_line, args);
     JobEntry *job_to_handle;
     if (num_of_args > 2) {
         perror("smash error: bg: invalid arguments");
-        delete[] args;
         return;
     } else if (num_of_args == 1) {
         job_to_handle = smash.jobs.getLastStoppedJob(nullptr);
         if (job_to_handle == nullptr) {
             perror("smash error: bg: there is no stopped jobs to resume");
-            delete[] args;
             return;
         }
     } else {
@@ -404,7 +400,6 @@ void BackgroundCommand::execute() {
             error_str.append(string(args[1]));
             error_str.append("does not exist");
             perror(error_str.c_str());
-            delete[] args;
             return;
         }
         if (!job_to_handle->is_stopped) {
@@ -412,21 +407,19 @@ void BackgroundCommand::execute() {
             error_str.append(string(args[1]));
             error_str.append("is already running in the background");
             perror(error_str.c_str());
-            delete[] args;
             return;
         }
     }
     job_to_handle->continue_job();
-    delete[] args;
 }
 
 void QuitCommand::execute() {
-    char **args = new char *[COMMAND_MAX_ARGS];
-    int num_of_args = _parseCommandLine(cmd_line.c_str(), args);
+    vector<string> args;
+    int num_of_args = _parseCommandLine(cmd_line, args);
     // with kill argument.
-    if (num_of_args >= 2 && (strcmp(args[1], "kill") == 0)) {
-        string error_msg = "smash: sending SIGKILL signal to";
-        error_msg.append(reinterpret_cast<const char *>(jobs_list->job_list.size()));
+    if (num_of_args >= 2 && args[1] == "kill") {
+        string error_msg = "smash: sending SIGKILL signal to ";
+        error_msg.append(std::to_string(jobs_list->job_list.size()));
         error_msg.append(" jobs:");
         perror(error_msg.c_str());
         for (auto &it : jobs_list->job_list) {
@@ -443,12 +436,11 @@ void QuitCommand::execute() {
                 perror("smash error: kill failed" << endl;
         }
     }*/
-    delete[] args;
     exit(0);
 }
 
 void ExternalCommand::execute() {
-    if (_isBackgroundCommand(cmd_line.c_str())) {
+    if (_isBackgroundCommand(cmd_line)) {
         is_forked = true;
         execute_forked();
     } else {
@@ -470,7 +462,6 @@ void RedirectionCommand::execute() {
     int flags = 0, red_pos = 0;
     string file_name = "";
     red_pos = cmd_line.find_first_of('>');
-    cmd_line = _trim(cmd_line);
     if (first_redirection) {
         flags = O_RDWR | O_CREAT | O_TRUNC;
         file_name = _trim(cmd_line.substr(red_pos + 1));
@@ -489,7 +480,7 @@ void RedirectionCommand::execute() {
     int fd = open(file_name.c_str(), flags, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH | S_IWOTH);
     if (fd == -1)
         perror("smash error: open failed");
-    SmallShell::getInstance().executeCommand(actual_command.c_str());
+    SmallShell::getInstance().executeCommand(actual_command);
     if (close(STDOUT_FILENO) == -1)
         perror("smash error: close failed");
     if (dup(new_out_fd) == -1)
@@ -499,11 +490,12 @@ void RedirectionCommand::execute() {
 }
 
 void CatCommand::execute() {
-    char **args = new char *[COMMAND_MAX_ARGS];
-    int num_of_args = _parseCommandLine(cmd_line.c_str(), args);
+    vector<string> args;
+    if (cmd_line[cmd_line.size() - 1] == '&')
+        cmd_line = _trim(cmd_line.substr(0, cmd_line.size() - 1));
+    int num_of_args = _parseCommandLine(cmd_line, args);
     if (num_of_args == 1) {
         perror("smash error: cat: not enough arguments");
-        delete[] args;
         return;
     }
 
@@ -512,26 +504,80 @@ void CatCommand::execute() {
     // start with 1 to skip the cat command itself.
     for (int i = 1; i < num_of_args; i++) {
         int fd = 0;
-        if((fd = open(args[i], O_RDONLY)) == -1) {
+        if ((fd = open(args[i].c_str(), O_RDONLY)) == -1) {
             perror("smash error: open failed");
             continue;
         }
         ssize_t input_read = 0;
         while (true) {
-            if((input_read = read(fd, buff, sizeof(buff))) == -1) {
+            if ((input_read = read(fd, buff, sizeof(buff))) == -1) {
                 perror("smash error: read failed");
                 break;
             }
             if (input_read == 0) {
                 break;
             } else {
-                if(write(STDOUT_FILENO, buff, input_read) == -1) {
+                if (write(STDOUT_FILENO, buff, input_read) == -1) {
                     perror("smash error: write failed");
                     break;
                 }
             }
         }
-        if(close(fd) == -1)
+        if (close(fd) == -1)
             perror("smash error: close failed");
+    }
+}
+
+void PipeCommand::execute() {
+    // remove & if one exists.
+    if (cmd_line[cmd_line.size() - 1] == '&')
+        cmd_line = _trim(cmd_line.substr(0, cmd_line.size() - 1));
+    int new_pipe[2], fd = 0, return_value;
+
+    SYS_CALL(return_value, pipe(new_pipe));
+
+    int left_command_pid = -1;
+    int right_command_pid = -1;
+    int del_pos = cmd_line.find_first_of('|');
+    string left_command = _trim(cmd_line.substr(0, del_pos - 1));
+    string right_command;
+    if (first_pipe)
+        right_command = _trim(cmd_line.substr(del_pos + 1));
+    else if (second_pipe)
+        right_command = _trim(cmd_line.substr(del_pos + 2));
+
+    SYS_CALL(left_command_pid, fork());
+    if (left_command_pid == 0) {
+        if (second_pipe)
+            fd = STDERR_FILENO;
+        else
+            fd = STDOUT_FILENO;
+
+        SYS_CALL(return_value, close(fd));
+        SYS_CALL(return_value, close(new_pipe[0]));
+        SYS_CALL(return_value, dup(new_pipe[1]));
+        SYS_CALL(return_value, close(new_pipe[1]));
+        SmallShell::getInstance().executeCommand(left_command);
+        SYS_CALL(return_value, close(fd));
+    } else {
+        SYS_CALL(right_command_pid, fork());
+        if (right_command_pid == 0) {
+            SYS_CALL(return_value, close(new_pipe[1]));
+            SYS_CALL(return_value, close(STDIN_FILENO));
+            SYS_CALL(return_value, dup(new_pipe[0]));
+            SYS_CALL(return_value, close(new_pipe[0]));
+            SmallShell::getInstance().executeCommand(right_command);
+            SYS_CALL(return_value, close(STDIN_FILENO));
+        } else {
+            SYS_CALL(return_value, close(new_pipe[0]));
+            SYS_CALL(return_value, close(new_pipe[1]));
+        }
+    }
+
+    if (left_command_pid == 0 || right_command_pid == 0) {
+        exit(0);
+    } else {
+        SYS_CALL(return_value, waitpid(left_command_pid, nullptr, 0));
+        SYS_CALL(return_value, waitpid(right_command_pid, nullptr, 0));
     }
 }
