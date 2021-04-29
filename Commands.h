@@ -23,8 +23,11 @@ public:
 class ExternalCommand : public Command {
 public:
     explicit ExternalCommand(const char* cmd_line) : Command(cmd_line) {} ;
+    bool is_forked = false;
     virtual ~ExternalCommand() = default;
     void execute() override;
+    void execute_forked();
+    void execute_non_forked();
 };
 
 class PipeCommand : public Command {
@@ -41,8 +44,6 @@ public:
     bool second_redirection;
     virtual ~RedirectionCommand() = default;
     void execute() override;
-    void execute_first();
-    void execute_second();
 };
 
 class ChangePromptCommand : public BuiltInCommand {
