@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <filesystem>
 
 using namespace std;
 
@@ -136,7 +137,7 @@ void SmallShell::executeCommand(const char *cmd_line) {
 }
 
 SmallShell::SmallShell() : prompt("smash> "), prev_wd(""), current_fg_pid(-1), my_smash_pid(getpid()),
-                           curr_fg_command(nullptr) {}
+                           curr_fg_command(nullptr),current_wd(std::__fs::filesystem::current_path()) {}
 
 
 void GetCurrDirCommand::execute() {
