@@ -1,6 +1,3 @@
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "modernize-pass-by-value"
-#pragma ide diagnostic ignored "modernize-use-override"
 #ifndef SMASH_COMMAND_H_
 #define SMASH_COMMAND_H_
 
@@ -162,7 +159,6 @@ public:
     std::string current_wd;
     std::string prev_wd;
     JobsList jobs;
-    //int max_job_id;
     int current_fg_pid;
     int my_smash_pid;
     Command* curr_fg_command;
@@ -180,4 +176,3 @@ public:
 };
 
 #endif //SMASH_COMMAND_H_
-#pragma clang diagnostic pop

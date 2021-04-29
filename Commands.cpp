@@ -441,46 +441,34 @@ void ExternalCommand::execute() {
 }
 
 void RedirectionCommand::execute() {
-    SmallShell &smash = SmallShell::getInstance();
-    int prev_out = dup(STDOUT_FILENO);
-    if (prev_out == -1) {
-        perror("smash error: dup failed");
-        return;
+    int flags = 0, red_pos = 0;
+    string file_name = "";
+    red_pos = cmd_line.find_first_of('>');
+    cmd_line = _trim(cmd_line);
+    if (first_redirection) {
+        flags = O_RDWR | O_CREAT | O_TRUNC;
+        file_name = _trim(cmd_line.substr(red_pos + 1));
     }
-    if (first_redirection)
-        execute_first();
-    else if (second_redirection)
-        execute_second();
+    else if (second_redirection) {
+        flags = O_RDWR | O_CREAT | O_APPEND;
+        file_name = _trim(cmd_line.substr(red_pos + 2));
+    }
 
-    // after we redirected the output file, we execute the command.
-    cmd_line = _trim(cmd_line.erase(cmd_line.find_first_of('>'), cmd_line.size()));
-    smash.executeCommand(cmd_line.c_str());
-    if(dup2(prev_out, STDOUT_FILENO) == -1)
-        perror("smash error: dup2 failed");
-}
+    string actual_command = _trim(cmd_line.substr(0, red_pos - 1));
+    int new_out_fd;
+    if((new_out_fd = dup(STDOUT_FILENO)) == -1)
+        perror("smash error: dup failed");
+    if(close(STDOUT_FILENO) == -1)
+        perror("smash error: close failed");
 
-void RedirectionCommand::execute_first() {
-    cmd_line = _trim(cmd_line);
-    int red_pos = cmd_line.find_first_of('>') + 1;
-    string file_name = _trim(cmd_line.substr(red_pos));
-    int fd = creat(file_name.c_str(), 0666);
+    int fd = open(file_name.c_str(), flags, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH | S_IWOTH);
     if (fd == -1)
         perror("smash error: open failed");
-    if (dup2(fd, STDOUT_FILENO == -1))
-        perror("smash error: dup2 failed");
-    if (close(fd) == -1)
+    SmallShell::getInstance().executeCommand(actual_command.c_str());
+    if(close(STDOUT_FILENO) == -1)
         perror("smash error: close failed");
-}
-
-void RedirectionCommand::execute_second() {
-    cmd_line = _trim(cmd_line);
-    int red_pos = cmd_line.find_last_of('>') + 1;
-    string file_name = _trim(cmd_line.substr(red_pos));
-    int fd = open(file_name.c_str(), O_CREAT | O_APPEND | O_RDWR, 0666);
-    if (fd == -1)
-        perror("smash error: open failed");
-    if (close(STDOUT_FILENO) == -1)
+    if(dup(new_out_fd) == -1)
+        perror("smash error: dup failed");
+    if(close(new_out_fd) == -1)
         perror("smash error: close failed");
-    if (dup2(fd, STDOUT_FILENO == -1))
-        perror("smash error: dup2 failed");
 }
