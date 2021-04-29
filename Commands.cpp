@@ -501,7 +501,7 @@ void CatCommand::execute() {
         return;
     }
 
-    uint8_t buff[BUFFER_SIZE];
+    char buff[BUFFER_SIZE];
 
     // start with 1 to skip the cat command itself.
     for (int i = 1; i < num_of_args; i++) {
