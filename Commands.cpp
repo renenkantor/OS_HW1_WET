@@ -10,7 +10,6 @@
 #include <algorithm>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <filesystem>
 
 using namespace std;
 
@@ -137,7 +136,13 @@ void SmallShell::executeCommand(const char *cmd_line) {
 }
 
 SmallShell::SmallShell() : prompt("smash> "), prev_wd(""), current_fg_pid(-1), my_smash_pid(getpid()),
-                           curr_fg_command(nullptr),current_wd(std::__fs::filesystem::current_path()) {}
+                           curr_fg_command(nullptr) {
+    char current_pwd[PATH_MAX_CD];
+    if (getcwd(current_pwd, PATH_MAX_CD) != nullptr)
+        current_wd=current_pwd;
+    else
+    cout << "error in pwd";
+}
 
 
 void GetCurrDirCommand::execute() {
