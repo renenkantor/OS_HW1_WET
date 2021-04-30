@@ -38,7 +38,7 @@ public:
     string cmd_line;
     bool is_time_out = false;
     bool is_bg = false;
-    long int kill_time;
+    int kill_time;
 
     virtual ~Command() = default;
 
@@ -229,7 +229,7 @@ class TimeOutList {
 public:
     class TimeOutEntry {
     public:
-        TimeOutEntry(const string &cmd_line, int pid, long int passed_time) : cmd_line(cmd_line), pid(pid) {
+        TimeOutEntry(const string &cmd_line, int pid, int passed_time) : cmd_line(cmd_line), pid(pid) {
             kill_time = passed_time + time(nullptr);
             alarm(passed_time);
         }

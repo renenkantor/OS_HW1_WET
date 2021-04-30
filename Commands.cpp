@@ -314,8 +314,10 @@ void KillCommand::execute() {
     bool check_if_third_is_int = (args[2].find_first_not_of("0123456789") == std::string::npos);
 
     // second and third argument must be numbers.
-    if (!check_if_second_is_int || !check_if_third_is_int)
+    if (!check_if_second_is_int || !check_if_third_is_int) {
         perror("smash error: kill: invalid arguments");
+        return;
+    }
 
 
     SmallShell &smash = SmallShell::getInstance();
@@ -342,12 +344,16 @@ void ForegroundCommand::execute() {
     int num_of_args = parseCommandLine(cmd_line, args);
     int status;
     // too many arguments.
-    if (num_of_args > 2)
+    if (num_of_args > 2) {
         perror("smash error: fg: invalid arguments");
+        return;
+    }
     else if (num_of_args == 1) {
         // no arguments but job list is emtpy.
-        if (smash.jobs.job_list.empty())
+        if (smash.jobs.job_list.empty()) {
             perror("smash error: fg: jobs list is empty");
+            return;
+        }
             // no arguments so get the maximum job.
         else {
             job_to_handle = smash.jobs.getMaxJob();
@@ -365,6 +371,7 @@ void ForegroundCommand::execute() {
             error_str.append(string(args[1]));
             error_str.append("does not exist");
             perror(error_str.c_str());
+            return;
         } else {
             if (job_to_handle->is_stopped)
                 job_to_handle->continue_job();
@@ -385,14 +392,18 @@ void BackgroundCommand::execute() {
     int num_of_args = parseCommandLine(cmd_line, args);
     JobEntry *job_to_handle;
     // invalid arguments.
-    if (num_of_args > 2)
+    if (num_of_args > 2) {
         perror("smash error: bg: invalid arguments");
+        return;
+    }
 
     if (num_of_args == 1) {
         job_to_handle = smash.jobs.getLastStoppedJob(nullptr);
         // jobs list is empty.
-        if (job_to_handle == nullptr)
+        if (job_to_handle == nullptr) {
             perror("smash error: bg: there is no stopped jobs to resume");
+            return;
+        }
         // handle specific job.
     } else {
         int job_id = stoi(string(args[1]));
@@ -402,12 +413,14 @@ void BackgroundCommand::execute() {
             error_str.append(string(args[1]));
             error_str.append("does not exist");
             perror(error_str.c_str());
+            return;
         }
         if (!job_to_handle->is_stopped) {
             string error_str = "smash error: bg: job-id ";
             error_str.append(string(args[1]));
             error_str.append("is already running in the background");
             perror(error_str.c_str());
+            return;
         }
     }
     job_to_handle->continue_job();
@@ -428,6 +441,7 @@ void QuitCommand::execute() {
     }
     // TODO : we need to deal with deleting quit command itself before exiting.
     // delete SmallShell::getInstance().curr_fg_command;
+    delete this;
     exit(0);
 }
 
@@ -511,27 +525,34 @@ void CatCommand::execute() {
     vector<string> args;
     remove_background_sign(cmd_line);
     int num_of_args = parseCommandLine(cmd_line, args);
-    if (num_of_args == 1)
+    if (num_of_args == 1) {
         perror("smash error: cat: not enough arguments");
+        return;
+    }
 
     char buff[BUFFER_SIZE];
-
     // start with 1 to skip the cat command itself.
     for (int i = 1; i < num_of_args; i++) {
         int fd = 0;
+        // try to open current file.
         if ((fd = open(args[i].c_str(), O_RDONLY)) == -1) {
             perror("smash error: open failed");
             continue;
         }
         ssize_t input_read = 0;
+        // start reading and writing.
         while (true) {
             if ((input_read = read(fd, buff, sizeof(buff))) == -1) {
                 perror("smash error: read failed");
                 break;
             }
+            // when we finish the file, input read will be 0 so break thw while and move to next file.
             if (input_read == 0)
                 break;
             else {
+                // this is to avoid adding new line at the end of file
+                if(input_read != BUFFER_SIZE)
+                    input_read--;
                 if (write(STDOUT_FILENO, buff, input_read) == -1) {
                     perror("smash error: write failed");
                     break;
