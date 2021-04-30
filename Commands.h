@@ -12,6 +12,7 @@
 using std::string;
 const string WHITESPACE = " \n\r\t\f\v";
 
+// no need to use return after fail because the macro does it itself.
 #define SYS_CALL(return_val, command)     \
     do                                    \
     {                                     \
@@ -29,7 +30,7 @@ static void smash_error(const string &syscall) {
 
 class Command {
 public:
-    explicit Command(const string &cmd_line) : cmd_line(cmd_line) {};
+    explicit Command(string &cmd_line) : cmd_line(cmd_line) {};
     string cmd_line;
 
     virtual ~Command() = default;
@@ -39,28 +40,30 @@ public:
 
 class BuiltInCommand : public Command {
 public:
-    explicit BuiltInCommand(const string &cmd_line) : Command(cmd_line) {};
-
+    explicit BuiltInCommand(string &cmd_line) : Command(cmd_line) {
+        BuiltInCommand::remove_background_sign(cmd_line);
+    } ;
+    static void remove_background_sign(string & cmd_line);
     virtual ~BuiltInCommand() = default;
 };
 
 class ExternalCommand : public Command {
 public:
-    explicit ExternalCommand(const string &cmd_line) : Command(cmd_line) {};
-    bool is_forked = false;
+    explicit ExternalCommand(string &cmd_line) : Command(cmd_line) {};
+    bool is_fg = false;
 
     virtual ~ExternalCommand() = default;
 
     void execute() override;
 
-    void execute_forked();
+    void execute_fg();
 
-    void execute_non_forked();
+    void execute_bg();
 };
 
 class PipeCommand : public Command {
 public:
-    explicit PipeCommand(const string &cmd_line, bool first, bool second) : Command(cmd_line), first_pipe(first),
+    explicit PipeCommand(string &cmd_line, bool first, bool second) : Command(cmd_line), first_pipe(first),
                                                                             second_pipe(second) {};
     bool first_pipe;
     bool second_pipe;
@@ -72,7 +75,7 @@ public:
 
 class RedirectionCommand : public Command {
 public:
-    explicit RedirectionCommand(const string &cmd_line, bool first, bool second) : Command(cmd_line),
+    explicit RedirectionCommand(string &cmd_line, bool first, bool second) : Command(cmd_line),
                                                                                    first_redirection(first),
                                                                                    second_redirection(second) {};
     bool first_redirection;
@@ -85,7 +88,7 @@ public:
 
 class ChangePromptCommand : public BuiltInCommand {
 public:
-    explicit ChangePromptCommand(const string &cmd_line) : BuiltInCommand(cmd_line) {};
+    explicit ChangePromptCommand(string &cmd_line) : BuiltInCommand(cmd_line) {};
 
     virtual ~ChangePromptCommand() = default;
 
@@ -94,7 +97,7 @@ public:
 
 class ChangeDirCommand : public BuiltInCommand {
 public:
-    explicit ChangeDirCommand(const string &cmd_line) : BuiltInCommand(cmd_line) {};
+    explicit ChangeDirCommand(string &cmd_line) : BuiltInCommand(cmd_line) {};
 
     virtual ~ChangeDirCommand() = default;
 
@@ -103,7 +106,7 @@ public:
 
 class GetCurrDirCommand : public BuiltInCommand {
 public:
-    explicit GetCurrDirCommand(const string &cmd_line) : BuiltInCommand(cmd_line) {};
+    explicit GetCurrDirCommand(string &cmd_line) : BuiltInCommand(cmd_line) {};
 
     virtual ~GetCurrDirCommand() = default;
 
@@ -112,7 +115,7 @@ public:
 
 class ShowPidCommand : public BuiltInCommand {
 public:
-    explicit ShowPidCommand(const string &cmd_line) : BuiltInCommand(cmd_line) {};
+    explicit ShowPidCommand(string &cmd_line) : BuiltInCommand(cmd_line) {};
 
     virtual ~ShowPidCommand() = default;
 
@@ -121,7 +124,7 @@ public:
 
 class JobEntry {
 public:
-    JobEntry(int job_id, int process_id, const string &job_command, time_t start_time, bool stopped, bool finished) :
+    JobEntry(int job_id, int process_id, string &job_command, time_t start_time, bool stopped, bool finished) :
             job_id(job_id), process_id(process_id), job_command(job_command), start_time(start_time),
             is_stopped(stopped), is_finished(finished) {};
     int job_id;
@@ -161,7 +164,7 @@ public:
 
 class QuitCommand : public BuiltInCommand {
 public:
-    QuitCommand(const string &cmd_line, JobsList *jobs) : BuiltInCommand(cmd_line), jobs_list(jobs) {};
+    QuitCommand(string &cmd_line, JobsList *jobs) : BuiltInCommand(cmd_line), jobs_list(jobs) {};
     JobsList *jobs_list;
 
     virtual ~QuitCommand() = default;
@@ -171,7 +174,7 @@ public:
 
 class JobsCommand : public BuiltInCommand {
 public:
-    JobsCommand(const string &cmd_line, JobsList *jobs) : BuiltInCommand(cmd_line), jobs_list(jobs) {};
+    JobsCommand(string &cmd_line, JobsList *jobs) : BuiltInCommand(cmd_line), jobs_list(jobs) {};
     JobsList *jobs_list;
 
     virtual ~JobsCommand() = default;
@@ -181,7 +184,7 @@ public:
 
 class KillCommand : public BuiltInCommand {
 public:
-    KillCommand(const string &cmd_line, JobsList *jobs) : BuiltInCommand(cmd_line), jobs_list(jobs) {};
+    KillCommand(string &cmd_line, JobsList *jobs) : BuiltInCommand(cmd_line), jobs_list(jobs) {};
     JobsList *jobs_list;
 
     virtual ~KillCommand() = default;
@@ -191,7 +194,7 @@ public:
 
 class ForegroundCommand : public BuiltInCommand {
 public:
-    ForegroundCommand(const string &cmd_line, JobsList *jobs) : BuiltInCommand(cmd_line), jobs_list(jobs) {};
+    ForegroundCommand(string &cmd_line, JobsList *jobs) : BuiltInCommand(cmd_line), jobs_list(jobs) {};
     JobsList *jobs_list;
 
     virtual ~ForegroundCommand() = default;
@@ -201,7 +204,7 @@ public:
 
 class BackgroundCommand : public BuiltInCommand {
 public:
-    BackgroundCommand(const string &cmd_line, JobsList *jobs) : BuiltInCommand(cmd_line), jobs_list(jobs) {};
+    BackgroundCommand(string &cmd_line, JobsList *jobs) : BuiltInCommand(cmd_line), jobs_list(jobs) {};
     JobsList *jobs_list;
 
     virtual ~BackgroundCommand() = default;
@@ -211,7 +214,7 @@ public:
 
 class CatCommand : public BuiltInCommand {
 public:
-    explicit CatCommand(const string &cmd_line) : BuiltInCommand(cmd_line) {};
+    explicit CatCommand(string &cmd_line) : BuiltInCommand(cmd_line) {};
 
     virtual ~CatCommand() = default;
 
