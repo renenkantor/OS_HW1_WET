@@ -28,9 +28,18 @@ using namespace std;
 // ***********************************************************************************************************************************
 // **********************************                FUNCTIONS FOR JOBS                 **********************************************
 // ***********************************************************************************************************************************
+
 JobEntry *JobsList::getJobById(int jobId) {
     for (auto &job : job_list) {
         if (job.job_id == jobId)
+            return &job;
+    }
+    return nullptr;
+}
+
+JobEntry *JobsList::getJobByPId(int jobPId) {
+    for (auto &job : job_list) {
+        if (job.process_id == jobPId)
             return &job;
     }
     return nullptr;
@@ -80,6 +89,15 @@ void JobsList::update_max_id() {
     max_job_id = cur_max;
 }
 
+void JobsList::removeFinishedJobs() {
+    if(job_list.empty()) return;
+    int wait_res = waitpid(-1, nullptr, WNOHANG);
+    while(wait_res > 0) {
+        removeJobById(wait_res);
+        wait_res = waitpid(-1, nullptr, WNOHANG);
+    }
+}
+
 int JobEntry::calc_job_elapsed_time() const {
     time_t *timer = nullptr;
     return (int) difftime(time(timer), start_time);
@@ -90,13 +108,6 @@ void JobEntry::continue_job() {
         perror("smash error: kill failed");
     else
         is_stopped = false;
-}
-
-void JobEntry::stop_job() {
-    if (kill(process_id, SIGSTOP) == -1)
-        perror("smash error: kill failed");
-    else
-        is_stopped = true;
 }
 
 // ***********************************************************************************************************************************
@@ -161,7 +172,7 @@ bool checkFirstPipe(const string &cmd_line) {
 }
 
 // pipe |&
-bool checkSecondPipe(const string &cmd_line) {
+bool checkSecondPipe(string &cmd_line) {
     return (cmd_line.find("|&") != string::npos);
 }
 
@@ -205,6 +216,7 @@ Command *SmallShell::CreateCommand(string &cmd_line) {
 }
 
 void SmallShell::executeCommand(string &cmd_line) {
+    jobs.removeFinishedJobs();
     cmd_line = both_trim(cmd_line);
     Command *cmd = CreateCommand(cmd_line);
     cmd->execute();
@@ -334,6 +346,7 @@ void KillCommand::execute() {
         // done with error handling. Now execute kill.
         int return_value;
         SYS_CALL(return_value, kill(job_to_handle->process_id, signum));
+        // TODO - should we assign is_stopped if signum == SIGSTOP?
     }
 }
 
@@ -378,12 +391,21 @@ void ForegroundCommand::execute() {
         }
     }
     smash.current_fg_pid = job_to_handle->process_id;
+    smash.current_fg_job_id = job_to_handle->job_id;
     smash.curr_fg_command = smash.CreateCommand(job_to_handle->job_command);
     cout << job_to_handle->job_command + " : " + to_string(job_to_handle->process_id) << endl;
     // wait until job_to_handled is finished or someone has stopped it (WUNTRACED).
-    waitpid(job_to_handle->process_id, &status, WUNTRACED);
+    if(waitpid(job_to_handle->process_id, &status, WUNTRACED) < 0) {
+        perror("smash error: waitpid failed");
+        smash.current_fg_pid = -1;
+        smash.current_fg_job_id = -1;
+        return;
+    }
     smash.jobs.removeJobById(job_to_handle->job_id);
     smash.jobs.update_max_id();
+    smash.current_fg_pid = -1;
+    smash.current_fg_job_id = -1;
+
 }
 
 void BackgroundCommand::execute() {
@@ -440,7 +462,6 @@ void QuitCommand::execute() {
         }
     }
     // TODO : we need to deal with deleting quit command itself before exiting.
-    // delete SmallShell::getInstance().curr_fg_command;
     delete this;
     exit(0);
 }
@@ -466,7 +487,7 @@ void ExternalCommand::execute() {
         return;
     } else if (pid == 0) { // son
         setpgrp();
-        char *argv[] = {(char *) "/bin/bash", (char *) "-c", cmd_str, NULL};
+        char *argv[] = {(char *) "/bin/bash", (char *) "-c", cmd_str, nullptr};
         if (execv(argv[0], argv) < 0) {
             perror("smash error: execv failed");
             delete[] cmd_str;
@@ -480,7 +501,7 @@ void ExternalCommand::execute() {
             smash.jobs.addJob(this, pid);
         } else {
             smash.current_fg_pid = pid;
-            waitpid(pid, NULL, 0 | WUNTRACED);
+            waitpid(pid, nullptr, 0 | WUNTRACED);
             smash.current_fg_pid = -1;
         }
     }
@@ -624,8 +645,10 @@ void TimeOutCommand::execute() {
         return;
 
     bool check_if_duration_is_int = (args[1].find_first_not_of("0123456789") == std::string::npos);
-    if (!check_if_duration_is_int)
+    if (!check_if_duration_is_int) {
+        perror("smash error: timeout: invalid argument");
         return;
+    }
 
     SmallShell &smash = SmallShell::getInstance();
     string new_cmd_str;

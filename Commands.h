@@ -139,10 +139,7 @@ public:
     bool is_finished;
 
     int calc_job_elapsed_time() const;
-
     void continue_job();
-
-    void stop_job();
 };
 
 class JobsList {
@@ -153,14 +150,10 @@ public:
     void addJob(Command *cmd, int process_id);
 
     JobEntry *getMaxJob();
-    //JobEntry * getLastJob(int* lastJobId);
-    /*void printJobsList();
-    void killAllJobs();
-    void removeFinishedJobs();*/
+    void removeFinishedJobs();
     JobEntry *getLastStoppedJob(int *jobId);
-
     JobEntry *getJobById(int jobId);
-
+    JobEntry *getJobByPId(int jobPId);
     void removeJobById(int jobId);
 
     void update_max_id();
@@ -288,6 +281,7 @@ public:
     JobsList jobs;
     TimeOutList time_out_list;
     int current_fg_pid;
+    int current_fg_job_id;
     int my_smash_pid;
     Command *curr_fg_command;
 

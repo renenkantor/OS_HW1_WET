@@ -7,18 +7,47 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-
 using namespace std;
 
 void ctrlZHandler(int sig_num) {
-	// TODO: Add your implementation
+    SmallShell &smash = SmallShell::getInstance();
+    int curr_pid = smash.current_fg_pid;
+    cout << "smash: got ctrl-Z" << endl;
+    // nothing is in the foreground now.
+    if (curr_pid == -1)
+        return;
+    int return_value;
+    SYS_CALL(return_value, kill(curr_pid, SIGSTOP));
+    cout << "smash: process " << curr_pid << " was stopped" << endl;
+    JobEntry *job = smash.jobs.getJobByPId(curr_pid);
+    // if job is not in the list, add it
+    if (job == nullptr)
+        smash.jobs.addJob(smash.curr_fg_command, curr_pid);
+    else {
+        job->is_stopped = true;
+        job->start_time = time(nullptr);
+    }
+
+    //smash.jobs.getJobByPId(curr_pid)->is_stopped = true;
+    smash.current_fg_pid = -1;
+    smash.curr_fg_command = nullptr;
 }
 
 void ctrlCHandler(int sig_num) {
-  // TODO: Add your implementation
+    SmallShell &smash = SmallShell::getInstance();
+    int curr_pid = smash.current_fg_pid;
+
+    cout << "smash: got ctrl-C" << endl;
+    // nothing in fg.
+    if (curr_pid == -1)
+        return;
+    int return_value;
+    SYS_CALL(return_value, kill(curr_pid, SIGKILL));
+
+    cout << "smash: process " << curr_pid << " was killed" << endl;
 }
 
 void alarmHandler(int sig_num) {
-  // TODO: Add your implementation
+    // TODO: Add your implementation
 }
 
