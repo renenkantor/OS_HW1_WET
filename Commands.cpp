@@ -38,7 +38,7 @@ string _trim(const string &s) {
     return _rtrim(_ltrim(s));
 }
 
-int _parseCommandLine(const string& cmd_line, vector<string>& args) {
+int _parseCommandLine(const string &cmd_line, vector<string> &args) {
     FUNC_ENTRY()
     string buf;
     stringstream ss(cmd_line);
@@ -49,7 +49,7 @@ int _parseCommandLine(const string& cmd_line, vector<string>& args) {
     FUNC_EXIT()
 }
 
-bool _isBackgroundCommand(const string& cmd_line) {
+bool _isBackgroundCommand(const string &cmd_line) {
     return cmd_line[cmd_line.find_last_not_of(WHITESPACE)] == '&';
 }
 
@@ -90,12 +90,12 @@ bool checkFirstPipe(const string cmd_line) {
 }
 
 // pipe |&
-bool checkSecondPipe(const string& cmd_line) {
+bool checkSecondPipe(const string &cmd_line) {
     string cmd_str = _trim(cmd_line);
     return (cmd_str.find("|&") != string::npos);
 }
 
-Command *SmallShell::CreateCommand(string& cmd_line) {
+Command *SmallShell::CreateCommand(string &cmd_line) {
 
     string firstWord = _trim(cmd_line.substr(0, cmd_line.find_first_of(" \n")));
     if (checkFirstRedirection(cmd_line))
@@ -131,7 +131,7 @@ Command *SmallShell::CreateCommand(string& cmd_line) {
     return nullptr;
 }
 
-void SmallShell::executeCommand(string& cmd_line) {
+void SmallShell::executeCommand(string &cmd_line) {
     cmd_line = _trim(cmd_line);
     Command *cmd = CreateCommand(cmd_line);
     cmd->execute();
@@ -144,62 +144,61 @@ SmallShell::SmallShell() : prompt("smash> "), prev_wd(""), current_fg_pid(-1), m
     char current_pwd[PATH_MAX_CD];
     if (getcwd(current_pwd, PATH_MAX_CD) != nullptr)
         current_wd = current_pwd;
-    else
-        cout << "error in pwd";
 }
-
 
 void GetCurrDirCommand::execute() {
     char current_pwd[PATH_MAX_CD];
     if (getcwd(current_pwd, PATH_MAX_CD) != nullptr)
         cout << current_pwd << endl;
     else
-        cout << "error in pwd";
+        perror("smash error: pwd failed");
 }
 
 void ShowPidCommand::execute() {
-    cout << "smash pid is " << getpid() << endl;
+    int ret_pid = 0;
+    SYS_CALL(ret_pid, getpid());
+    cout << "smash pid is " << ret_pid << endl;
 }
 
 void ChangePromptCommand::execute() {
-    string new_prompt = _trim(cmd_line.substr(8));
-    new_prompt = _trim(new_prompt.substr(0, cmd_line.find_first_of(" \n")));
-    SmallShell &smash = SmallShell::getInstance();
-    if (new_prompt.empty())
-        smash.prompt = "smash> ";
-    else
-        smash.prompt = new_prompt + "> ";
+    vector<string> args;
+    if(_parseCommandLine(cmd_line, args) == 1)
+        SmallShell::getInstance().prompt = "smash> ";
+    else {
+        SmallShell::getInstance().prompt = args[1];
+        SmallShell::getInstance().prompt.append("> ");
+    }
 }
 
 void ChangeDirCommand::execute() {
     SmallShell &smash = SmallShell::getInstance();
-    if (cmd_line == "cd -") {
+    vector<string> args;
+    int return_val;
+    int num_of_args = _parseCommandLine(cmd_line, args);
+    // too many args.
+    if (num_of_args >= 3) {
+        perror("smash error: cd: too many arguments");
+        return;
+    }
+    // no args - do nothing.
+    if (num_of_args == 1)
+        return;
+    // change to specific dir.
+    if (args[1] != "-") {
+        char current_pwd[PATH_MAX_CD];
+        getcwd(current_pwd, PATH_MAX_CD);
+        smash.prev_wd = string(current_pwd);
+        SYS_CALL(return_val, chdir(args[1].c_str()));
+
+    // change to prev dir.
+    } else {
         if (smash.prev_wd.empty())
             perror("smash error: cd: OLDPWD not set");
         else {
-            if (chdir(smash.prev_wd.c_str()) == 0) {
-                char current_pwd[PATH_MAX_CD];
-                getcwd(current_pwd, PATH_MAX_CD);
-                smash.prev_wd = string(current_pwd);
-            } else
-                perror("smash error: chdir failed");
-        }
-    } else {
-        int spaces = 0;
-        string new_dir = _trim(_trim(cmd_line).substr(2, _trim(cmd_line).find_first_of('\n')));
-        for (auto &letter : new_dir) {
-            if (letter == ' ')
-                spaces++;
-        }
-        // if there are any spaces after all the trimming it means two arguments.
-        if (spaces != 0)
-            perror("smash error: cd: too many arguments");
-        else {
-            if (chdir(new_dir.c_str()) == 0) {
-                smash.prev_wd = smash.current_wd;
-                smash.current_wd = new_dir;
-            } else
-                perror("smash error: chdir failed");
+            SYS_CALL(return_val, chdir(smash.prev_wd.c_str()));
+            char current_pwd[PATH_MAX_CD];
+            getcwd(current_pwd, PATH_MAX_CD);
+            smash.prev_wd = string(current_pwd);
         }
     }
 }
@@ -418,10 +417,7 @@ void QuitCommand::execute() {
     int num_of_args = _parseCommandLine(cmd_line, args);
     // with kill argument.
     if (num_of_args >= 2 && args[1] == "kill") {
-        string error_msg = "smash: sending SIGKILL signal to ";
-        error_msg.append(std::to_string(jobs_list->job_list.size()));
-        error_msg.append(" jobs:");
-        perror(error_msg.c_str());
+        cout << "smash: sending SIGKILL signal to " << jobs_list->job_list.size() << " jobs:" << endl;
         for (auto &it : jobs_list->job_list) {
             if (kill(it.process_id, SIGKILL) == -1)
                 perror("smash error: kill failed");
