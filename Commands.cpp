@@ -102,24 +102,24 @@ void JobEntry::stop_job() {
 // **********************************                STRING FUNCTIONS                 ************************************************
 // ***********************************************************************************************************************************
 
-string _ltrim(const string &s) {
+string left_trim(const string &s) {
     size_t start = s.find_first_not_of(WHITESPACE);
     return (start == string::npos) ? "" : s.substr(start);
 }
 
-string _rtrim(const string &s) {
+string right_trim(const string &s) {
     size_t end = s.find_last_not_of(WHITESPACE);
     return (end == string::npos) ? "" : s.substr(0, end + 1);
 }
 
-string _trim(const string &s) {
-    return _rtrim(_ltrim(s));
+string both_trim(const string &s) {
+    return right_trim(left_trim(s));
 }
 
-int _parseCommandLine(const string &cmd_line, vector<string> &args) {
+int parseCommandLine(const string &cmd_line, vector<string> &args) {
     FUNC_ENTRY()
     string buf;
-    stringstream ss(_trim(cmd_line));
+    stringstream ss(both_trim(cmd_line));
     vector<std::string> tokens;
     while (ss >> buf)
         args.push_back(buf);
@@ -127,7 +127,7 @@ int _parseCommandLine(const string &cmd_line, vector<string> &args) {
     FUNC_EXIT()
 }
 
-bool _isBackgroundCommand(string &cmd_line) {
+bool isBackgroundCommand(string &cmd_line) {
     return cmd_line[cmd_line.find_last_not_of(WHITESPACE)] == '&';
 }
 
@@ -166,7 +166,7 @@ bool checkSecondPipe(const string &cmd_line) {
 
 Command *SmallShell::CreateCommand(string &cmd_line) {
 
-    string firstWord = _trim(cmd_line.substr(0, cmd_line.find_first_of(" \n")));
+    string firstWord = both_trim(cmd_line.substr(0, cmd_line.find_first_of(" \n")));
     // **************       SPECIAL COMMANDS       **************
     if (checkFirstRedirection(cmd_line))
         return new RedirectionCommand(cmd_line, true, false);
@@ -204,7 +204,7 @@ Command *SmallShell::CreateCommand(string &cmd_line) {
 }
 
 void SmallShell::executeCommand(string &cmd_line) {
-    cmd_line = _trim(cmd_line);
+    cmd_line = both_trim(cmd_line);
     Command *cmd = CreateCommand(cmd_line);
     cmd->execute();
     // Please note that you must fork smash process for some commands (e.g., external commands....)
@@ -224,7 +224,7 @@ SmallShell::SmallShell() : prompt("smash> "), prev_wd(""), current_fg_pid(-1), m
 
 void ChangePromptCommand::execute() {
     vector<string> args;
-    if (_parseCommandLine(cmd_line, args) == 1)
+    if (parseCommandLine(cmd_line, args) == 1)
         SmallShell::getInstance().prompt = "smash> ";
     else {
         SmallShell::getInstance().prompt = args[1];
@@ -250,7 +250,7 @@ void ChangeDirCommand::execute() {
     SmallShell &smash = SmallShell::getInstance();
     vector<string> args;
     int return_val;
-    int num_of_args = _parseCommandLine(cmd_line, args);
+    int num_of_args = parseCommandLine(cmd_line, args);
     // too many args.
     if (num_of_args >= 3) {
         perror("smash error: cd: too many arguments");
@@ -300,7 +300,7 @@ void JobsCommand::execute() {
 
 void KillCommand::execute() {
     vector<string> args;
-    int num_of_args = _parseCommandLine(cmd_line, args);
+    int num_of_args = parseCommandLine(cmd_line, args);
 
     if (num_of_args != 3 || args[1][0] != '-')
         perror("smash error: kill: invalid arguments");
@@ -336,7 +336,7 @@ void ForegroundCommand::execute() {
     SmallShell &smash = SmallShell::getInstance();
     JobEntry *job_to_handle = nullptr;
     vector<string> args;
-    int num_of_args = _parseCommandLine(cmd_line, args);
+    int num_of_args = parseCommandLine(cmd_line, args);
     int status;
     // too many arguments.
     if (num_of_args > 2)
@@ -379,7 +379,7 @@ void ForegroundCommand::execute() {
 void BackgroundCommand::execute() {
     SmallShell &smash = SmallShell::getInstance();
     vector<string> args;
-    int num_of_args = _parseCommandLine(cmd_line, args);
+    int num_of_args = parseCommandLine(cmd_line, args);
     JobEntry *job_to_handle;
     // invalid arguments.
     if (num_of_args > 2)
@@ -412,7 +412,7 @@ void BackgroundCommand::execute() {
 
 void QuitCommand::execute() {
     vector<string> args;
-    int num_of_args = _parseCommandLine(cmd_line, args);
+    int num_of_args = parseCommandLine(cmd_line, args);
     // with kill argument.
     if (num_of_args >= 2 && args[1] == "kill") {
         cout << "smash: sending SIGKILL signal to " << jobs_list->job_list.size() << " jobs:" << endl;
@@ -423,13 +423,8 @@ void QuitCommand::execute() {
                 cout << it.process_id << ": " << it.job_command << endl;
         }
     }
-    // without kill argument. Im not sure what to do here. According to piaaza, without kill we just need to exit and do nothing.
-    /*else {
-        for (auto &it : jobs_list->job_list) {
-            if (kill(it.process_id, SIGKILL) == -1)
-                perror("smash error: kill failed" << endl;
-        }
-    }*/
+    // TODO : we need to deal with deleting quit command itself before exiting.
+    // delete SmallShell::getInstance().curr_fg_command;
     exit(0);
 }
 
@@ -438,7 +433,7 @@ void QuitCommand::execute() {
 // ***********************************************************************************************************************************
 
 void ExternalCommand::execute() {
-    if (_isBackgroundCommand(cmd_line)) {
+    if (isBackgroundCommand(cmd_line)) {
         is_fg = true;
         execute_fg();
     } else {
@@ -456,7 +451,7 @@ void ExternalCommand::execute_bg() {
 }
 
 // ***********************************************************************************************************************************
-// **********************************                SPECIAL EXECUTE                 ************************************************
+// **********************************                SPECIAL EXECUTE                 *************************************************
 // ***********************************************************************************************************************************
 
 void RedirectionCommand::execute() {
@@ -465,13 +460,13 @@ void RedirectionCommand::execute() {
     red_pos = cmd_line.find_first_of('>');
     if (first_redirection) {
         flags = O_RDWR | O_CREAT | O_TRUNC;
-        file_name = _trim(cmd_line.substr(red_pos + 1));
+        file_name = both_trim(cmd_line.substr(red_pos + 1));
     } else if (second_redirection) {
         flags = O_RDWR | O_CREAT | O_APPEND;
-        file_name = _trim(cmd_line.substr(red_pos + 2));
+        file_name = both_trim(cmd_line.substr(red_pos + 2));
     }
 
-    string actual_command = _trim(cmd_line.substr(0, red_pos - 1));
+    string actual_command = both_trim(cmd_line.substr(0, red_pos - 1));
     int new_out_fd, return_value, fd;
 
     // switch between stdout to user file.
@@ -490,7 +485,7 @@ void RedirectionCommand::execute() {
 void CatCommand::execute() {
     vector<string> args;
     remove_background_sign(cmd_line);
-    int num_of_args = _parseCommandLine(cmd_line, args);
+    int num_of_args = parseCommandLine(cmd_line, args);
     if (num_of_args == 1)
         perror("smash error: cat: not enough arguments");
 
@@ -533,12 +528,12 @@ void PipeCommand::execute() {
     int left_command_pid = -1;
     int right_command_pid = -1;
     int del_pos = cmd_line.find_first_of('|');
-    string left_command = _trim(cmd_line.substr(0, del_pos - 1));
+    string left_command = both_trim(cmd_line.substr(0, del_pos - 1));
     string right_command;
     if (first_pipe)
-        right_command = _trim(cmd_line.substr(del_pos + 1));
+        right_command = both_trim(cmd_line.substr(del_pos + 1));
     else if (second_pipe)
-        right_command = _trim(cmd_line.substr(del_pos + 2));
+        right_command = both_trim(cmd_line.substr(del_pos + 2));
 
     SYS_CALL(left_command_pid, fork());
     if (left_command_pid == 0) {
