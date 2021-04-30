@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 using namespace std;
 
@@ -131,16 +132,16 @@ bool isBackgroundCommand(string &cmd_line) {
     return cmd_line[cmd_line.find_last_not_of(WHITESPACE)] == '&';
 }
 
-void BuiltInCommand::remove_background_sign(string& cmd_line) {
+void BuiltInCommand::remove_background_sign(string &cmd_line) {
     int i;
     bool to_remove = false;
-    for(i = cmd_line.size() - 1; i >= 0; i--) {
-        if(cmd_line[i] == '&') {
+    for (i = cmd_line.size() - 1; i >= 0; i--) {
+        if (cmd_line[i] == '&') {
             to_remove = true;
             break;
         }
     }
-    if(to_remove)
+    if (to_remove)
         cmd_line.erase(i);
 }
 
@@ -302,8 +303,10 @@ void KillCommand::execute() {
     vector<string> args;
     int num_of_args = parseCommandLine(cmd_line, args);
 
-    if (num_of_args != 3 || args[1][0] != '-')
+    if (num_of_args != 3 || args[1][0] != '-') {
         perror("smash error: kill: invalid arguments");
+        return;
+    }
 
     // removes - sign from the first number.
     args[1].erase(0, 1);
@@ -433,21 +436,42 @@ void QuitCommand::execute() {
 // ***********************************************************************************************************************************
 
 void ExternalCommand::execute() {
-    if (isBackgroundCommand(cmd_line)) {
-        is_fg = true;
-        execute_fg();
+
+    bool is_background = isBackgroundCommand(cmd_line);
+    SmallShell &smash = SmallShell::getInstance();
+
+    if (is_background) BuiltInCommand::remove_background_sign(cmd_line);
+    char *cmd_str = new char[COMMAND_ARGS_MAX_LENGTH];
+    strcpy(cmd_str, cmd_line.c_str());
+
+    int pid = fork();
+
+    if (pid < 0) {
+        perror("smash error: fork failed");
+        delete[] cmd_str;
+        return;
+    } else if (pid == 0) { // son
+        setpgrp();
+        char *argv[] = {(char *) "/bin/bash", (char *) "-c", cmd_str, NULL};
+        if (execv(argv[0], argv) < 0) {
+            perror("smash error: execv failed");
+            delete[] cmd_str;
+            exit(1);
+        }
     } else {
-        is_fg = false;
-        execute_bg();
+        if (this->is_time_out)
+            smash.time_out_list.add_entry(cmd_line, pid, kill_time);
+
+        if (is_background) {
+            smash.jobs.addJob(this, pid);
+        } else {
+            smash.current_fg_pid = pid;
+            waitpid(pid, NULL, 0 | WUNTRACED);
+            smash.current_fg_pid = -1;
+        }
     }
-}
 
-void ExternalCommand::execute_fg() {
-
-}
-
-void ExternalCommand::execute_bg() {
-
+    delete[] cmd_str;
 }
 
 // ***********************************************************************************************************************************
@@ -483,6 +507,7 @@ void RedirectionCommand::execute() {
 }
 
 void CatCommand::execute() {
+    // TODO : check the problem with new line on different files.
     vector<string> args;
     remove_background_sign(cmd_line);
     int num_of_args = parseCommandLine(cmd_line, args);
@@ -569,4 +594,28 @@ void PipeCommand::execute() {
         SYS_CALL(return_value, waitpid(left_command_pid, nullptr, 0));
         SYS_CALL(return_value, waitpid(right_command_pid, nullptr, 0));
     }
+}
+
+void TimeOutCommand::execute() {
+    vector<string> args;
+    int num_of_args = parseCommandLine(cmd_line, args);
+    if (num_of_args < 3)
+        return;
+
+    bool check_if_duration_is_int = (args[1].find_first_not_of("0123456789") == std::string::npos);
+    if (!check_if_duration_is_int)
+        return;
+
+    SmallShell &smash = SmallShell::getInstance();
+    string new_cmd_str;
+    for(int i = 2; i < num_of_args; i++) {
+        new_cmd_str.append(args[i]);
+        new_cmd_str.append(" ");
+    }
+    new_cmd_str = both_trim(new_cmd_str);
+    Command *new_cmd = smash.CreateCommand(new_cmd_str);
+    (*new_cmd).is_time_out = true;
+    (*new_cmd).kill_time = stoi(args[1]);
+    new_cmd->execute();
+    delete new_cmd;
 }

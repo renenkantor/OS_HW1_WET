@@ -3,6 +3,9 @@
 
 #include <vector>
 #include <string>
+#include <algorithm>
+#include <list>
+#include <unistd.h>
 
 #define COMMAND_ARGS_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
@@ -29,9 +32,13 @@ static void smash_error(const string &syscall) {
 }
 
 class Command {
+
 public:
     explicit Command(string &cmd_line) : cmd_line(cmd_line) {};
     string cmd_line;
+    bool is_time_out = false;
+    bool is_bg = false;
+    long int kill_time;
 
     virtual ~Command() = default;
 
@@ -42,29 +49,26 @@ class BuiltInCommand : public Command {
 public:
     explicit BuiltInCommand(string &cmd_line) : Command(cmd_line) {
         BuiltInCommand::remove_background_sign(cmd_line);
-    } ;
-    static void remove_background_sign(string & cmd_line);
+    };
+
+    static void remove_background_sign(string &cmd_line);
+
     virtual ~BuiltInCommand() = default;
 };
 
 class ExternalCommand : public Command {
 public:
     explicit ExternalCommand(string &cmd_line) : Command(cmd_line) {};
-    bool is_fg = false;
 
     virtual ~ExternalCommand() = default;
 
     void execute() override;
-
-    void execute_fg();
-
-    void execute_bg();
 };
 
 class PipeCommand : public Command {
 public:
     explicit PipeCommand(string &cmd_line, bool first, bool second) : Command(cmd_line), first_pipe(first),
-                                                                            second_pipe(second) {};
+                                                                      second_pipe(second) {};
     bool first_pipe;
     bool second_pipe;
 
@@ -76,8 +80,8 @@ public:
 class RedirectionCommand : public Command {
 public:
     explicit RedirectionCommand(string &cmd_line, bool first, bool second) : Command(cmd_line),
-                                                                                   first_redirection(first),
-                                                                                   second_redirection(second) {};
+                                                                             first_redirection(first),
+                                                                             second_redirection(second) {};
     bool first_redirection;
     bool second_redirection;
 
@@ -221,6 +225,57 @@ public:
     void execute() override;
 };
 
+class TimeOutList {
+public:
+    class TimeOutEntry {
+    public:
+        TimeOutEntry(const string &cmd_line, int pid, long int passed_time) : cmd_line(cmd_line), pid(pid) {
+            kill_time = passed_time + time(nullptr);
+            alarm(passed_time);
+        }
+        string cmd_line;
+        int pid = -1;
+        int kill_time;
+        ~TimeOutEntry() = default;
+    };
+
+    std::list<TimeOutEntry *> *timeout_list;
+
+    TimeOutList() {
+        timeout_list = new std::list<TimeOutEntry*>({});
+    }
+
+    ~TimeOutList() {
+        for(auto entry : *timeout_list){
+            delete entry;
+        }
+        delete timeout_list;
+    }
+
+    void add_entry(const string &cmd_line, int pid, int kill_time) const {
+        auto *time_out_entry = new TimeOutEntry(cmd_line, pid, kill_time);
+        timeout_list->push_back(time_out_entry);
+        timeout_list->push_back(new TimeOutEntry(cmd_line, pid, kill_time));
+    }
+
+    void remove_entry(int pid) const {
+        for (auto entry = timeout_list->begin(); entry != timeout_list->end();) {
+            if ((*entry)->pid == pid) {
+                timeout_list->remove(*entry);
+                delete *entry;
+                break;
+            }
+        }
+    }
+};
+
+class TimeOutCommand : public Command {
+public:
+    explicit TimeOutCommand(string &cmd_line) : Command(cmd_line) {} ;
+    virtual ~TimeOutCommand() = default;
+    void execute() override;
+};
+
 class SmallShell {
 public:
     SmallShell();
@@ -231,6 +286,7 @@ public:
     string current_wd;
     string prev_wd;
     JobsList jobs;
+    TimeOutList time_out_list;
     int current_fg_pid;
     int my_smash_pid;
     Command *curr_fg_command;

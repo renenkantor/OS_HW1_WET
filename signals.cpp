@@ -2,6 +2,11 @@
 #include <signal.h>
 #include "signals.h"
 #include "Commands.h"
+#include <iostream>
+#include <time.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+
 
 using namespace std;
 
