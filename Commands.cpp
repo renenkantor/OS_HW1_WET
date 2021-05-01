@@ -73,7 +73,12 @@ void JobsList::addJob(Command *cmd, int process_id, bool is_stopped) {
     else
         job_command = cmd->cmd_line;
 
-    JobEntry current_job(SmallShell::getInstance().max_job_id + 1, process_id, job_command, start_time, is_stopped, false);
+    int new_id;
+    if(job_list.empty())
+        new_id = 1;
+    else
+        new_id = SmallShell::getInstance().max_job_id +1;
+    JobEntry current_job(new_id, process_id, job_command, start_time, is_stopped, false);
     job_list.push_back(current_job);
     SmallShell::getInstance().max_job_id++;
     update_max_id();
@@ -241,6 +246,7 @@ Command *SmallShell::CreateCommand(string &cmd_line) {
 
 void SmallShell::executeCommand(string &cmd_line) {
     jobs.removeFinishedJobs();
+    jobs.update_max_id();
     cmd_line = both_trim(cmd_line);
     Command *cmd = CreateCommand(cmd_line);
     cmd->execute();
@@ -410,18 +416,24 @@ void ForegroundCommand::execute() {
                 job_to_handle->continue_job();
         }
     }
+
     smash.current_fg_pid = job_to_handle->process_id;
     smash.current_fg_job_id = job_to_handle->job_id;
     smash.curr_fg_command = smash.CreateCommand(job_to_handle->job_command);
     cout << job_to_handle->job_command + " : " + to_string(job_to_handle->process_id) << endl;
+    ///smash.executeCommand(job_to_handle->job_command); ///fix the problem but not OK
     // wait until job_to_handled is finished or someone has stopped it (WUNTRACED).
     if(waitpid(job_to_handle->process_id, &status, WUNTRACED) < 0) {
         perror("smash error: waitpid failed");
     }
-    smash.jobs.removeJobById(job_to_handle->job_id);
+    if (WIFEXITED(status) || WIFSIGNALED(status)) {
+        smash.jobs.removeJobById(job_to_handle->job_id);
+        smash.current_fg_pid = -1;
+        smash.current_fg_job_id = -1;
+    }
     smash.jobs.update_max_id();
-    smash.current_fg_pid = -1;
-    smash.current_fg_job_id = -1;
+//    smash.jobs.removeJobById(job_to_handle->job_id);
+
 }
 
 void BackgroundCommand::execute() {
@@ -482,9 +494,9 @@ void QuitCommand::execute() {
     exit(0);
 }
 
-// ***********************************************************************************************************************************
-// **********************************                EXTERNAL EXECUTE                 ************************************************
-// ***********************************************************************************************************************************
+/// ***********************************************************************************************************************************
+/// **********************************                EXTERNAL EXECUTE                 ************************************************
+/// ***********************************************************************************************************************************
 
 void ExternalCommand::execute() {
 
