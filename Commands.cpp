@@ -59,8 +59,6 @@ void JobsList::addJob(Command *cmd, int process_id) {
     this->job_list.push_back(current_job);
     SmallShell::getInstance().max_job_id++;
     update_max_id();
-
-
 }
 
 bool JobsComparor(const JobEntry &first, const JobEntry &second) {
@@ -90,8 +88,6 @@ void JobsList::update_max_id() {
             cur_max = it.job_id;
     }
     SmallShell::getInstance().max_job_id = cur_max;
-
-
 }
 
 void JobsList::removeFinishedJobs() {
@@ -303,20 +299,14 @@ void ChangeDirCommand::execute() {
 
 void JobsCommand::execute() {
     SmallShell &smash = SmallShell::getInstance();
-    // removes all finished jobs from the list.
-    smash.jobs.job_list.erase(
-            std::remove_if(smash.jobs.job_list.begin(), smash.jobs.job_list.end(), [](JobEntry const &cur_job) {
-                return cur_job.is_finished;
-            }), smash.jobs.job_list.end());
-
     std::sort(smash.jobs.job_list.begin(), smash.jobs.job_list.end(), JobsComparor);
     for (auto &job : smash.jobs.job_list) {
         if (job.is_stopped)
-            cout << "[" << job.job_id << "]" << job.job_command << " : " << job.process_id
-                 << job.calc_job_elapsed_time() << "(stopped)" << endl;
+            cout << "[" << job.job_id << "]" << job.job_command << " : " << job.process_id << " "
+                 << job.calc_job_elapsed_time() << " secs (stopped)" << endl;
         else if (!job.is_finished)
-            cout << "[" << job.job_id << "]" << job.job_command << " : " << job.process_id
-                 << job.calc_job_elapsed_time() << endl;
+            cout << "[" << job.job_id << "]" << job.job_command << " : " << job.process_id << " " <<
+                 job.calc_job_elapsed_time() << " secs" << endl;
     }
 }
 
@@ -480,8 +470,11 @@ void ExternalCommand::execute() {
 
     bool is_background = isBackgroundCommand(cmd_line);
     SmallShell &smash = SmallShell::getInstance();
-
-    if (is_background) BuiltInCommand::remove_background_sign(cmd_line);
+    string cmd_line_with_bg;
+    if (is_background) {
+        cmd_line_with_bg = cmd_line;
+        BuiltInCommand::remove_background_sign(cmd_line);
+    }
     char *cmd_str = new char[COMMAND_ARGS_MAX_LENGTH];
     strcpy(cmd_str, cmd_line.c_str());
 
@@ -504,6 +497,7 @@ void ExternalCommand::execute() {
             smash.time_out_list.add_entry(cmd_line, pid, kill_time);
 
         if (is_background) {
+            cmd_line = cmd_line_with_bg;
             smash.jobs.addJob(this, pid);
         } else {
             smash.current_fg_pid = pid;

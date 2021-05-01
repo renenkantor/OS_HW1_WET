@@ -22,8 +22,10 @@ void ctrlZHandler(int sig_num) {
     cout << "smash: process " << curr_pid << " was stopped" << endl;
     JobEntry *job = smash.jobs.getJobByPId(curr_pid);
     // if job is not in the list, add it
-    if (job == nullptr)
+    if (job == nullptr) {
         smash.jobs.addJob(smash.curr_fg_command, curr_pid);
+        smash.jobs.getJobByPId(curr_pid)->is_stopped = true;
+    }
     else {
         job->is_stopped = true;
         job->start_time = time(nullptr);
