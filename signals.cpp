@@ -23,15 +23,14 @@ void ctrlZHandler(int sig_num) {
     JobEntry *job = smash.jobs.getJobByPId(curr_pid);
     // if job is not in the list, add it
     if (job == nullptr) {
-        smash.jobs.addJob(smash.curr_fg_command, curr_pid);
-        smash.jobs.getJobByPId(curr_pid)->is_stopped = true;
+        smash.jobs.addJob(smash.curr_fg_command, curr_pid, true);
     }
     else {
         job->is_stopped = true;
         job->start_time = time(nullptr);
     }
 
-    //smash.jobs.getJobByPId(curr_pid)->is_stopped = true;
+    smash.jobs.getJobByPId(curr_pid)->is_stopped = true;
     smash.current_fg_pid = -1;
     smash.curr_fg_command = nullptr;
 }
@@ -52,9 +51,8 @@ void ctrlCHandler(int sig_num) {
 
 void alarmHandler(int sig_num) {
     cout << "smash: got an alarm" << endl;
-    SmallShell &smash = SmallShell::getInstance();
+    //SmallShell &smash = SmallShell::getInstance();
     time_t cur_time;
     SYS_CALL(cur_time, time(nullptr));
     list<TimeOutCommand> to_remove;
 }
-

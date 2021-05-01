@@ -145,11 +145,11 @@ public:
 class JobsList {
 public:
     std::vector<JobEntry> job_list;
-    void addJob(Command *cmd, int process_id);
+    void addJob(Command *cmd, int process_id, bool is_stopped);
 
     JobEntry *getMaxJob();
     void removeFinishedJobs();
-    JobEntry *getLastStoppedJob(int *jobId);
+    JobEntry *getLastStoppedJob();
     JobEntry *getJobById(int jobId);
     JobEntry *getJobByPId(int jobPId);
     void removeJobById(int jobId);
@@ -271,19 +271,18 @@ public:
 class SmallShell {
 public:
     SmallShell();
-
     ~SmallShell() = default;
 
     string prompt;
-    string current_wd;
     string prev_wd;
+    int current_fg_pid;
+    int my_smash_pid;
+    int current_fg_job_id;
+    int max_job_id;
+    string current_wd;
+    Command *curr_fg_command;
     JobsList jobs;
     TimeOutList time_out_list;
-    int current_fg_pid;
-    int current_fg_job_id;
-    int my_smash_pid;
-    int max_job_id;
-    Command *curr_fg_command;
 
     Command *CreateCommand(string &cmd_line);
 

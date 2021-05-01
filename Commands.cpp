@@ -53,9 +53,9 @@ void JobsList::removeJobById(int jobId) {
     job_list.erase(job_list.begin() + pos);
 }
 
-void JobsList::addJob(Command *cmd, int process_id) {
+void JobsList::addJob(Command *cmd, int process_id, bool is_stopped) {
     time_t start_time = time(nullptr);
-    JobEntry current_job(SmallShell::getInstance().max_job_id + 1, process_id, cmd->cmd_line, start_time, false, false);
+    JobEntry current_job(SmallShell::getInstance().max_job_id + 1, process_id, cmd->cmd_line, start_time, is_stopped, false);
     this->job_list.push_back(current_job);
     SmallShell::getInstance().max_job_id++;
     update_max_id();
@@ -70,15 +70,15 @@ JobEntry *JobsList::getMaxJob() {
     return &job_list.back();
 }
 
-JobEntry *JobsList::getLastStoppedJob(int *jobId) {
-    *jobId = 0;
+JobEntry *JobsList::getLastStoppedJob() {
+    int job_id;
     for (auto &it : job_list) {
         if (it.is_stopped) {
-            *jobId = it.job_id;
+            job_id = it.job_id;
             break;
         }
     }
-    return getJobById(*jobId);
+    return getJobById(job_id);
 }
 
 void JobsList::update_max_id() {
@@ -416,7 +416,7 @@ void BackgroundCommand::execute() {
     }
 
     if (num_of_args == 1) {
-        job_to_handle = smash.jobs.getLastStoppedJob(nullptr);
+        job_to_handle = smash.jobs.getLastStoppedJob();
         // jobs list is empty.
         if (job_to_handle == nullptr) {
             perror("smash error: bg: there is no stopped jobs to resume");
@@ -498,7 +498,7 @@ void ExternalCommand::execute() {
 
         if (is_background) {
             cmd_line = cmd_line_with_bg;
-            smash.jobs.addJob(this, pid);
+            smash.jobs.addJob(this, pid, false);
         } else {
             smash.current_fg_pid = pid;
             smash.curr_fg_command = this;
