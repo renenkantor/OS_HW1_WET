@@ -48,10 +48,10 @@ void ctrlCHandler(int sig_num) {
 }
 
 void alarmHandler(int sig_num) {
-    cout << "smash: got an alarm" << endl;
     SmallShell &smash = SmallShell::getInstance();
     if (smash.time_out_list.timeout_list.empty())
         return;
+    cout << "smash: got an alarm" << endl;
     int return_value;
     for(const auto& time_entry : smash.time_out_list.timeout_list) {
         if (difftime(time_entry.kill_time, time(nullptr)) >= 0) {
@@ -59,7 +59,7 @@ void alarmHandler(int sig_num) {
             return_value = waitpid(pid, nullptr, WNOHANG);
             if (return_value == 0) {
                 SYS_CALL(return_value, kill(pid, sig_num));
-                cout << "smash: " << time_entry.cmd_line << " timed out!" << endl;
+                cout << "smash: " << time_entry.un_proccessed_cmd << " timed out!" << endl;
             }
             smash.time_out_list.remove_entry(pid);
             smash.jobs.removeJobByPId(pid);

@@ -7,8 +7,6 @@
 
 int main(int argc, char *argv[]) {
 
-
-
     if (signal(SIGTSTP, ctrlZHandler) == SIG_ERR) {
         perror("smash error: failed to set ctrl-Z handler");
     }

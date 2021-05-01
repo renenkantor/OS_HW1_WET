@@ -36,6 +36,7 @@ class Command {
 public:
     explicit Command(string &cmd_line) : cmd_line(cmd_line) {};
     string cmd_line;
+    string un_proccessed_cmd;
     bool is_time_out = false;
     bool is_bg = false;
     int kill_time;
@@ -220,23 +221,26 @@ class TimeOutList {
 public:
     class TimeOutEntry {
     public:
-        TimeOutEntry(const string &cmd_line, int pid, int duration) : cmd_line(cmd_line), pid(pid) {
+        TimeOutEntry(const string &cmd_line, const string &un_proccessed_cmd, int pid, int duration) : cmd_line(cmd_line), un_proccessed_cmd(un_proccessed_cmd), pid(pid) {
             kill_time = duration + time(nullptr);
             alarm(duration);
         }
         string cmd_line;
+        string un_proccessed_cmd;
         int pid = -1;
         int kill_time;
         ~TimeOutEntry() = default;
     };
 
     std::vector<TimeOutEntry> timeout_list;
-    void add_entry(const string &cmd_line, int pid, int kill_time) {
-        TimeOutEntry time_out_entry(cmd_line, pid, kill_time);
+    void add_entry(const string &cmd_line, const string &un_proccessed_cmd, int pid, int kill_time) {
+        TimeOutEntry time_out_entry(cmd_line, un_proccessed_cmd, pid, kill_time);
         timeout_list.push_back(time_out_entry);
     }
     void remove_entry(int pid)  {
         unsigned int pos;
+        if(timeout_list.empty())
+            return;
         for (pos = 0; pos < timeout_list.size(); pos++) {
             if (timeout_list[pos].pid == pid) break;
         }

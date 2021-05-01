@@ -47,6 +47,8 @@ JobEntry *JobsList::getJobByPId(int jobPId) {
 
 void JobsList::removeJobById(int jobId) {
     unsigned int pos;
+    if(job_list.empty())
+        return;
     for (pos = 0; pos < job_list.size(); pos++) {
         if (job_list[pos].job_id == jobId) break;
     }
@@ -55,6 +57,8 @@ void JobsList::removeJobById(int jobId) {
 
 void JobsList::removeJobByPId(int jobPId) {
     unsigned int pos;
+    if(job_list.empty())
+        return;
     for (pos = 0; pos < job_list.size(); pos++) {
         if (job_list[pos].process_id == jobPId) break;
     }
@@ -63,8 +67,14 @@ void JobsList::removeJobByPId(int jobPId) {
 
 void JobsList::addJob(Command *cmd, int process_id, bool is_stopped) {
     time_t start_time = time(nullptr);
-    JobEntry current_job(SmallShell::getInstance().max_job_id + 1, process_id, cmd->cmd_line, start_time, is_stopped, false);
-    this->job_list.push_back(current_job);
+    string job_command;
+    if(cmd->is_time_out)
+        job_command = cmd->un_proccessed_cmd;
+    else
+        job_command = cmd->cmd_line;
+
+    JobEntry current_job(SmallShell::getInstance().max_job_id + 1, process_id, job_command, start_time, is_stopped, false);
+    job_list.push_back(current_job);
     SmallShell::getInstance().max_job_id++;
     update_max_id();
 }
@@ -478,6 +488,7 @@ void QuitCommand::execute() {
 
 void ExternalCommand::execute() {
 
+    // TODO : check about unproccessed cmd_line when adding to job list.
     bool is_background = isBackgroundCommand(cmd_line);
     SmallShell &smash = SmallShell::getInstance();
     string cmd_line_with_bg;
@@ -500,11 +511,11 @@ void ExternalCommand::execute() {
         if (execv(argv[0], argv) < 0) {
             perror("smash error: execv failed");
             delete[] cmd_str;
-            exit(1);
+            return;
         }
     } else {
         if (this->is_time_out)
-            smash.time_out_list.add_entry(cmd_line, pid, kill_time);
+            smash.time_out_list.add_entry(cmd_line, un_proccessed_cmd, pid, kill_time);
 
         if (is_background) {
             cmd_line = cmd_line_with_bg;
@@ -652,6 +663,7 @@ void PipeCommand::execute() {
 
 void TimeOutCommand::execute() {
     vector<string> args;
+    string un_proccessed_cmd = cmd_line;
     int num_of_args = parseCommandLine(cmd_line, args);
     if (num_of_args < 3)
         return;
@@ -661,7 +673,7 @@ void TimeOutCommand::execute() {
         perror("smash error: timeout: invalid argument");
         return;
     }
-
+    // timeout 3 sleep 10 &
     SmallShell &smash = SmallShell::getInstance();
     string new_cmd_str;
     for(int i = 2; i < num_of_args; i++) {
@@ -672,6 +684,7 @@ void TimeOutCommand::execute() {
     Command *new_cmd = smash.CreateCommand(new_cmd_str);
     (*new_cmd).is_time_out = true;
     (*new_cmd).kill_time = stoi(args[1]);
+    (*new_cmd).un_proccessed_cmd = un_proccessed_cmd;
     new_cmd->execute();
     delete new_cmd;
 }
