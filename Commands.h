@@ -153,7 +153,7 @@ public:
     JobEntry *getJobById(int jobId);
     JobEntry *getJobByPId(int jobPId);
     void removeJobById(int jobId);
-
+    void removeJobByPId(int jobPId);
     void update_max_id();
 };
 
@@ -230,35 +230,18 @@ public:
         ~TimeOutEntry() = default;
     };
 
-    std::list<TimeOutEntry *> *timeout_list;
-
-    TimeOutList() {
-        timeout_list = new std::list<TimeOutEntry*>({});
+    std::vector<TimeOutEntry> timeout_list;
+    void add_entry(const string &cmd_line, int pid, int kill_time) {
+        TimeOutEntry time_out_entry(cmd_line, pid, kill_time);
+        timeout_list.push_back(time_out_entry);
     }
-
-    ~TimeOutList() {
-        for(auto entry : *timeout_list){
-            delete entry;
+    void remove_entry(int pid)  {
+        unsigned int pos;
+        for (pos = 0; pos < timeout_list.size(); pos++) {
+            if (timeout_list[pos].pid == pid) break;
         }
-        delete timeout_list;
+        timeout_list.erase(timeout_list.begin() + pos);
     }
-
-    void add_entry(const string &cmd_line, int pid, int kill_time) const {
-        auto *time_out_entry = new TimeOutEntry(cmd_line, pid, kill_time);
-        timeout_list->push_back(time_out_entry);
-        timeout_list->push_back(new TimeOutEntry(cmd_line, pid, kill_time));
-    }
-
-    void remove_entry(int pid) const {
-        for (auto entry = timeout_list->begin(); entry != timeout_list->end();) {
-            if ((*entry)->pid == pid) {
-                timeout_list->remove(*entry);
-                delete *entry;
-                break;
-            }
-        }
-    }
-
 };
 
 class TimeOutCommand : public Command {

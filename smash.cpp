@@ -7,13 +7,19 @@
 
 int main(int argc, char *argv[]) {
 
+
+
     if (signal(SIGTSTP, ctrlZHandler) == SIG_ERR) {
         perror("smash error: failed to set ctrl-Z handler");
     }
     if (signal(SIGINT, ctrlCHandler) == SIG_ERR) {
         perror("smash error: failed to set ctrl-C handler");
     }
-    if (signal(SIGALRM, alarmHandler) == SIG_ERR) {
+    struct sigaction sig_action {};
+    sig_action.sa_flags = SA_RESTART;
+    sig_action.sa_handler = alarmHandler;
+
+    if (sigaction(SIGALRM, &sig_action, nullptr)) {
         perror("smash error: failed to set alarm handler");
     }
 

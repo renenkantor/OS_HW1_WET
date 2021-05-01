@@ -48,7 +48,15 @@ JobEntry *JobsList::getJobByPId(int jobPId) {
 void JobsList::removeJobById(int jobId) {
     unsigned int pos;
     for (pos = 0; pos < job_list.size(); pos++) {
-        if (job_list[pos].process_id == jobId) break;
+        if (job_list[pos].job_id == jobId) break;
+    }
+    job_list.erase(job_list.begin() + pos);
+}
+
+void JobsList::removeJobByPId(int jobPId) {
+    unsigned int pos;
+    for (pos = 0; pos < job_list.size(); pos++) {
+        if (job_list[pos].process_id == jobPId) break;
     }
     job_list.erase(job_list.begin() + pos);
 }
@@ -94,11 +102,13 @@ void JobsList::removeFinishedJobs() {
     if(job_list.empty()) return;
     int wait_res = waitpid(-1, nullptr, WNOHANG);
     while(wait_res > 0) {
-        removeJobById(wait_res);
+        removeJobByPId(wait_res);
         wait_res = waitpid(-1, nullptr, WNOHANG);
     }
     update_max_id();
 }
+
+
 
 int JobEntry::calc_job_elapsed_time() const {
     time_t *timer = nullptr;
