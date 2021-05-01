@@ -355,6 +355,7 @@ void KillCommand::execute() {
         // done with error handling. Now execute kill.
         int return_value;
         SYS_CALL(return_value, kill(job_to_handle->process_id, signum));
+        cout << "signal number " << args[1] << " was sent to pid " << job_to_handle->process_id << endl;
         // TODO - should we assign is_stopped if signum == SIGSTOP?
     }
 }
@@ -406,15 +407,11 @@ void ForegroundCommand::execute() {
     // wait until job_to_handled is finished or someone has stopped it (WUNTRACED).
     if(waitpid(job_to_handle->process_id, &status, WUNTRACED) < 0) {
         perror("smash error: waitpid failed");
-        smash.current_fg_pid = -1;
-        smash.current_fg_job_id = -1;
-        return;
     }
     smash.jobs.removeJobById(job_to_handle->job_id);
     smash.jobs.update_max_id();
     smash.current_fg_pid = -1;
     smash.current_fg_job_id = -1;
-
 }
 
 void BackgroundCommand::execute() {
@@ -510,8 +507,10 @@ void ExternalCommand::execute() {
             smash.jobs.addJob(this, pid);
         } else {
             smash.current_fg_pid = pid;
+            smash.curr_fg_command = this;
             waitpid(pid, nullptr, 0 | WUNTRACED);
             smash.current_fg_pid = -1;
+            smash.curr_fg_command = nullptr;
         }
     }
 

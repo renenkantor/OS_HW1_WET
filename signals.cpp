@@ -23,8 +23,7 @@ void ctrlZHandler(int sig_num) {
     JobEntry *job = smash.jobs.getJobByPId(curr_pid);
     // if job is not in the list, add it
     if (job == nullptr)
-        int i = 0;
-        //smash.jobs.addJob(smash.curr_fg_command, curr_pid);
+        smash.jobs.addJob(smash.curr_fg_command, curr_pid);
     else {
         job->is_stopped = true;
         job->start_time = time(nullptr);
