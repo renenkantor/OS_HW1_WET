@@ -11,6 +11,7 @@ using namespace std;
 
 void ctrlZHandler(int sig_num) {
     SmallShell &smash = SmallShell::getInstance();
+    smash.jobs.removeFinishedJobs();
     int curr_pid = smash.current_fg_pid;
     cout << "smash: got ctrl-Z" << endl;
     // nothing is in the foreground now.
@@ -22,7 +23,8 @@ void ctrlZHandler(int sig_num) {
     JobEntry *job = smash.jobs.getJobByPId(curr_pid);
     // if job is not in the list, add it
     if (job == nullptr)
-        smash.jobs.addJob(smash.curr_fg_command, curr_pid);
+        int i = 0;
+        //smash.jobs.addJob(smash.curr_fg_command, curr_pid);
     else {
         job->is_stopped = true;
         job->start_time = time(nullptr);
@@ -48,6 +50,10 @@ void ctrlCHandler(int sig_num) {
 }
 
 void alarmHandler(int sig_num) {
-    // TODO: Add your implementation
+    cout << "smash: got an alarm" << endl;
+    SmallShell &smash = SmallShell::getInstance();
+    time_t cur_time;
+    SYS_CALL(cur_time, time(nullptr));
+    list<TimeOutCommand> to_remove;
 }
 

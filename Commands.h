@@ -145,8 +145,6 @@ public:
 class JobsList {
 public:
     std::vector<JobEntry> job_list;
-    int max_job_id;
-
     void addJob(Command *cmd, int process_id);
 
     JobEntry *getMaxJob();
@@ -222,9 +220,9 @@ class TimeOutList {
 public:
     class TimeOutEntry {
     public:
-        TimeOutEntry(const string &cmd_line, int pid, int passed_time) : cmd_line(cmd_line), pid(pid) {
-            kill_time = passed_time + time(nullptr);
-            alarm(passed_time);
+        TimeOutEntry(const string &cmd_line, int pid, int duration) : cmd_line(cmd_line), pid(pid) {
+            kill_time = duration + time(nullptr);
+            alarm(duration);
         }
         string cmd_line;
         int pid = -1;
@@ -260,6 +258,7 @@ public:
             }
         }
     }
+
 };
 
 class TimeOutCommand : public Command {
@@ -283,6 +282,7 @@ public:
     int current_fg_pid;
     int current_fg_job_id;
     int my_smash_pid;
+    int max_job_id;
     Command *curr_fg_command;
 
     Command *CreateCommand(string &cmd_line);

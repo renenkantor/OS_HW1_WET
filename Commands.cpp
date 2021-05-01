@@ -48,16 +48,19 @@ JobEntry *JobsList::getJobByPId(int jobPId) {
 void JobsList::removeJobById(int jobId) {
     unsigned int pos;
     for (pos = 0; pos < job_list.size(); pos++) {
-        if (job_list[pos].job_id == jobId) break;
+        if (job_list[pos].process_id == jobId) break;
     }
     job_list.erase(job_list.begin() + pos);
 }
 
 void JobsList::addJob(Command *cmd, int process_id) {
     time_t start_time = time(nullptr);
-    JobEntry current_job(max_job_id + 1, process_id, cmd->cmd_line, start_time, false, false);
-    max_job_id++;
+    JobEntry current_job(SmallShell::getInstance().max_job_id + 1, process_id, cmd->cmd_line, start_time, false, false);
     this->job_list.push_back(current_job);
+    SmallShell::getInstance().max_job_id++;
+    update_max_id();
+
+
 }
 
 bool JobsComparor(const JobEntry &first, const JobEntry &second) {
@@ -86,7 +89,9 @@ void JobsList::update_max_id() {
         if (it.job_id > cur_max)
             cur_max = it.job_id;
     }
-    max_job_id = cur_max;
+    SmallShell::getInstance().max_job_id = cur_max;
+
+
 }
 
 void JobsList::removeFinishedJobs() {
@@ -96,6 +101,7 @@ void JobsList::removeFinishedJobs() {
         removeJobById(wait_res);
         wait_res = waitpid(-1, nullptr, WNOHANG);
     }
+    update_max_id();
 }
 
 int JobEntry::calc_job_elapsed_time() const {
@@ -210,6 +216,8 @@ Command *SmallShell::CreateCommand(string &cmd_line) {
     else if (firstWord == "cat")
         return new CatCommand(cmd_line);
         // **************       EXTERNAL COMMANDS       **************
+    else if(firstWord == "timeout")
+        return new TimeOutCommand(cmd_line);
     else
         return new ExternalCommand(cmd_line);
     return nullptr;
@@ -246,6 +254,7 @@ void ChangePromptCommand::execute() {
 }
 
 void ShowPidCommand::execute() {
+
     int ret_pid = 0;
     SYS_CALL(ret_pid, getpid());
     cout << "smash pid is " << ret_pid << endl;
