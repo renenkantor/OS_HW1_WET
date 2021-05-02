@@ -53,16 +53,18 @@ void alarmHandler(int sig_num) {
         return;
     cout << "smash: got an alarm" << endl;
     int return_value;
-    for(const auto& time_entry : smash.time_out_list.timeout_list) {
-        if (difftime(time_entry.kill_time, time(nullptr)) >= 0) {
-            int pid = time_entry.pid;
+    //for(const auto& time_entry : smash.time_out_list.timeout_list) {
+    //    if (difftime(time_entry.kill_time, time(nullptr)) >= 0) {
+            int pid = smash.time_out_list.timeout_list.front().pid;
             return_value = waitpid(pid, nullptr, WNOHANG);
             if (return_value == 0) {
                 SYS_CALL(return_value, kill(pid, sig_num));
-                cout << "smash: " << time_entry.un_proccessed_cmd << " timed out!" << endl;
+                cout << "smash: " << smash.time_out_list.timeout_list.front().un_proccessed_cmd << " timed out!" << endl;
             }
             smash.time_out_list.remove_entry(pid);
             smash.jobs.removeJobByPId(pid);
-        }
-    }
+       // }
+   // }
 }
+
+

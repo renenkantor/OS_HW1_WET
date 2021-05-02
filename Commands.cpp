@@ -123,8 +123,6 @@ void JobsList::removeFinishedJobs() {
     update_max_id();
 }
 
-
-
 int JobEntry::calc_job_elapsed_time() const {
     time_t *timer = nullptr;
     return (int) difftime(time(timer), start_time);
@@ -215,7 +213,7 @@ Command *SmallShell::CreateCommand(string &cmd_line) {
         return new PipeCommand(cmd_line, true, false);
     else if (checkSecondPipe(cmd_line))
         return new PipeCommand(cmd_line, false, true);
-        // **************       BUILT IN COMMANDS       **************
+    // **************       BUILT IN COMMANDS       **************
     else if (firstWord == "pwd")
         return new GetCurrDirCommand(cmd_line);
     else if (firstWord == "showpid")
@@ -236,7 +234,7 @@ Command *SmallShell::CreateCommand(string &cmd_line) {
         return new QuitCommand(cmd_line, &jobs);
     else if (firstWord == "cat")
         return new CatCommand(cmd_line);
-        // **************       EXTERNAL COMMANDS       **************
+    // **************       EXTERNAL COMMANDS       **************
     else if(firstWord == "timeout")
         return new TimeOutCommand(cmd_line);
     else
@@ -250,7 +248,6 @@ void SmallShell::executeCommand(string &cmd_line) {
     cmd_line = both_trim(cmd_line);
     Command *cmd = CreateCommand(cmd_line);
     cmd->execute();
-    // Please note that you must fork smash process for some commands (e.g., external commands....)
     delete cmd;
 }
 
@@ -356,7 +353,6 @@ void KillCommand::execute() {
         return;
     }
 
-
     SmallShell &smash = SmallShell::getInstance();
     int signum = stoi(args[1]);
     int job_id = stoi(args[2]);
@@ -416,12 +412,10 @@ void ForegroundCommand::execute() {
                 job_to_handle->continue_job();
         }
     }
-
     smash.current_fg_pid = job_to_handle->process_id;
     smash.current_fg_job_id = job_to_handle->job_id;
     smash.curr_fg_command = smash.CreateCommand(job_to_handle->job_command);
     cout << job_to_handle->job_command + " : " + to_string(job_to_handle->process_id) << endl;
-    ///smash.executeCommand(job_to_handle->job_command); ///fix the problem but not OK
     // wait until job_to_handled is finished or someone has stopped it (WUNTRACED).
     if(waitpid(job_to_handle->process_id, &status, WUNTRACED) < 0) {
         perror("smash error: waitpid failed");
@@ -494,9 +488,9 @@ void QuitCommand::execute() {
     exit(0);
 }
 
-/// ***********************************************************************************************************************************
-/// **********************************                EXTERNAL EXECUTE                 ************************************************
-/// ***********************************************************************************************************************************
+// ***********************************************************************************************************************************
+// **********************************                EXTERNAL EXECUTE                 ************************************************
+// ***********************************************************************************************************************************
 
 void ExternalCommand::execute() {
 
@@ -527,7 +521,7 @@ void ExternalCommand::execute() {
         }
     } else {
         if (this->is_time_out)
-            smash.time_out_list.add_entry(cmd_line, un_proccessed_cmd, pid, kill_time);
+            smash.time_out_list.add_entry(cmd_line, un_proccessed_cmd, pid, kill_time, time(nullptr));
 
         if (is_background) {
             cmd_line = cmd_line_with_bg;
@@ -675,7 +669,7 @@ void PipeCommand::execute() {
 
 void TimeOutCommand::execute() {
     vector<string> args;
-    string un_proccessed_cmd = cmd_line;
+    string un_proccessed_cmd = cmd_line; // this is used only for printing.
     int num_of_args = parseCommandLine(cmd_line, args);
     if (num_of_args < 3)
         return;
@@ -685,7 +679,6 @@ void TimeOutCommand::execute() {
         perror("smash error: timeout: invalid argument");
         return;
     }
-    // timeout 3 sleep 10 &
     SmallShell &smash = SmallShell::getInstance();
     string new_cmd_str;
     for(int i = 2; i < num_of_args; i++) {

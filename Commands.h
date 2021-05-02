@@ -140,21 +140,30 @@ public:
     bool is_finished;
 
     int calc_job_elapsed_time() const;
+
     void continue_job();
 };
 
 class JobsList {
 public:
     std::vector<JobEntry> job_list;
+
     void addJob(Command *cmd, int process_id, bool is_stopped);
 
     JobEntry *getMaxJob();
+
     void removeFinishedJobs();
+
     JobEntry *getLastStoppedJob();
+
     JobEntry *getJobById(int jobId);
+
     JobEntry *getJobByPId(int jobPId);
+
     void removeJobById(int jobId);
+
     void removeJobByPId(int jobPId);
+
     void update_max_id();
 };
 
@@ -221,43 +230,72 @@ class TimeOutList {
 public:
     class TimeOutEntry {
     public:
-        TimeOutEntry(const string &cmd_line, const string &un_proccessed_cmd, int pid, int duration) : cmd_line(cmd_line), un_proccessed_cmd(un_proccessed_cmd), pid(pid) {
-            kill_time = duration + time(nullptr);
-            alarm(duration);
+        TimeOutEntry(const string &cmd_line, const string &un_proccessed_cmd, int pid, int duration, time_t start_time)
+                : cmd_line(cmd_line), un_proccessed_cmd(un_proccessed_cmd), pid(pid), start_time(start_time),
+                  duration(duration) {
+            kill_time = duration + start_time;
         }
+
         string cmd_line;
         string un_proccessed_cmd;
         int pid = -1;
-        int kill_time;
+        time_t kill_time; // time when the alarm should go off.
+        time_t start_time; // time when we wrote the command.
+        time_t duration; // how long the actual timeout is (timeout _duration_ ...)
         ~TimeOutEntry() = default;
     };
 
+    time_t cur_minimum_time;
     std::vector<TimeOutEntry> timeout_list;
-    void add_entry(const string &cmd_line, const string &un_proccessed_cmd, int pid, int kill_time) {
-        TimeOutEntry time_out_entry(cmd_line, un_proccessed_cmd, pid, kill_time);
-        timeout_list.push_back(time_out_entry);
+
+    static bool timeComparor(const TimeOutEntry &first, const TimeOutEntry &second) {
+        return (first.kill_time < second.kill_time);
     }
-    void remove_entry(int pid)  {
-        unsigned int pos;
-        if(timeout_list.empty())
-            return;
-        for (pos = 0; pos < timeout_list.size(); pos++) {
-            if (timeout_list[pos].pid == pid) break;
+
+    void
+    add_entry(const string &cmd_line, const string &un_proccessed_cmd, int pid, time_t duration, time_t start_time) {
+        TimeOutEntry time_out_entry(cmd_line, un_proccessed_cmd, pid, duration, start_time);
+        timeout_list.push_back(time_out_entry);
+        // change alarm when we create a sole timeout, or the new kill time is the first to timeout.
+        if (duration + start_time < cur_minimum_time || timeout_list.size() == 1)
+            cur_minimum_time = duration + start_time;
+
+        for (auto &t : timeout_list) {
+            time_t new_kill = t.kill_time + t.start_time - start_time;
+            t.kill_time = new_kill;
         }
-        timeout_list.erase(timeout_list.begin() + pos);
+        std::sort(timeout_list.begin(), timeout_list.end(), timeComparor);
+        cur_minimum_time = timeout_list.front().kill_time;
+        time_t alarm_elapsed = cur_minimum_time - timeout_list.front().start_time;
+        alarm(alarm_elapsed);
+    }
+
+    void remove_entry(int pid) {
+        if (timeout_list.empty())
+            return;
+        time_t prev_kill = timeout_list.front().kill_time;
+        timeout_list.erase(timeout_list.begin()); // remove the latest timeout.
+        if (timeout_list.empty())
+            return;
+        cur_minimum_time = timeout_list.front().kill_time;
+        time_t alarm_elapsed = timeout_list.front().kill_time - prev_kill;
+        alarm(alarm_elapsed);
     }
 };
 
 class TimeOutCommand : public Command {
 public:
-    explicit TimeOutCommand(string &cmd_line) : Command(cmd_line) {} ;
+    explicit TimeOutCommand(string &cmd_line) : Command(cmd_line) {};
+
     virtual ~TimeOutCommand() = default;
+
     void execute() override;
 };
 
 class SmallShell {
 public:
     SmallShell();
+
     ~SmallShell() = default;
 
     string prompt;
