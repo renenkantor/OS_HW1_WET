@@ -47,7 +47,7 @@ JobEntry *JobsList::getJobByPId(int jobPId) {
 
 void JobsList::removeJobById(int jobId) {
     unsigned int pos;
-    if(job_list.empty())
+    if (job_list.empty())
         return;
     for (pos = 0; pos < job_list.size(); pos++) {
         if (job_list[pos].job_id == jobId) break;
@@ -57,7 +57,7 @@ void JobsList::removeJobById(int jobId) {
 
 void JobsList::removeJobByPId(int jobPId) {
     unsigned int pos;
-    if(job_list.empty())
+    if (job_list.empty())
         return;
     for (pos = 0; pos < job_list.size(); pos++) {
         if (job_list[pos].process_id == jobPId) break;
@@ -68,16 +68,16 @@ void JobsList::removeJobByPId(int jobPId) {
 void JobsList::addJob(Command *cmd, int process_id, bool is_stopped) {
     time_t start_time = time(nullptr);
     string job_command;
-    if(cmd->is_time_out)
+    if (cmd->is_time_out)
         job_command = cmd->un_proccessed_cmd;
     else
         job_command = cmd->cmd_line;
 
     int new_id;
-    if(job_list.empty())
+    if (job_list.empty())
         new_id = 1;
     else
-        new_id = SmallShell::getInstance().max_job_id +1;
+        new_id = SmallShell::getInstance().max_job_id + 1;
     JobEntry current_job(new_id, process_id, job_command, start_time, is_stopped, false);
     job_list.push_back(current_job);
     SmallShell::getInstance().max_job_id++;
@@ -114,9 +114,9 @@ void JobsList::update_max_id() {
 }
 
 void JobsList::removeFinishedJobs() {
-    if(job_list.empty()) return;
+    if (job_list.empty()) return;
     int wait_res = waitpid(-1, nullptr, WNOHANG);
-    while(wait_res > 0) {
+    while (wait_res > 0) {
         removeJobByPId(wait_res);
         wait_res = waitpid(-1, nullptr, WNOHANG);
     }
@@ -179,6 +179,7 @@ void BuiltInCommand::remove_background_sign(string &cmd_line) {
     }
     if (to_remove)
         cmd_line.erase(i);
+
 }
 
 // redirection >
@@ -213,7 +214,7 @@ Command *SmallShell::CreateCommand(string &cmd_line) {
         return new PipeCommand(cmd_line, true, false);
     else if (checkSecondPipe(cmd_line))
         return new PipeCommand(cmd_line, false, true);
-    // **************       BUILT IN COMMANDS       **************
+        // **************       BUILT IN COMMANDS       **************
     else if (firstWord == "pwd" || firstWord == "pwd&")
         return new GetCurrDirCommand(cmd_line);
     else if (firstWord == "showpid" || firstWord == "showpid&")
@@ -234,8 +235,8 @@ Command *SmallShell::CreateCommand(string &cmd_line) {
         return new QuitCommand(cmd_line, &jobs);
     else if (firstWord == "cat" || firstWord == "cat&")
         return new CatCommand(cmd_line);
-    // **************       EXTERNAL COMMANDS       **************
-    else if(firstWord == "timeout")
+        // **************       EXTERNAL COMMANDS       **************
+    else if (firstWord == "timeout")
         return new TimeOutCommand(cmd_line);
     else
         return new ExternalCommand(cmd_line);
@@ -303,8 +304,7 @@ void ChangeDirCommand::execute() {
         if (smash.prev_wd.empty()) {
             perror("smash error: cd: OLDPWD not set");
             return;
-        }
-        else {
+        } else {
             char current_pwd[PATH_MAX_CD];
             getcwd(current_pwd, PATH_MAX_CD);
             SYS_CALL(return_val, chdir(smash.prev_wd.c_str()));
@@ -314,7 +314,7 @@ void ChangeDirCommand::execute() {
 }
 
 void JobsCommand::execute() {
-    if(jobs_list->job_list.empty())
+    if (jobs_list->job_list.empty())
         return;
     std::sort(jobs_list->job_list.begin(), jobs_list->job_list.end(), JobsComparor);
     for (auto &job : jobs_list->job_list) {
@@ -374,8 +374,7 @@ void ForegroundCommand::execute() {
     if (num_of_args > 2) {
         perror("smash error: fg: invalid arguments");
         return;
-    }
-    else if (num_of_args == 1) {
+    } else if (num_of_args == 1) {
         // no arguments but job list is emtpy.
         if (smash.jobs.job_list.empty()) {
             perror("smash error: fg: jobs list is empty");
@@ -407,7 +406,7 @@ void ForegroundCommand::execute() {
     smash.curr_fg_command = smash.CreateCommand(job_to_handle->job_command);
     cout << job_to_handle->job_command + " : " + to_string(job_to_handle->process_id) << endl;
     // wait until job_to_handled is finished or someone has stopped it (WUNTRACED).
-    if(waitpid(job_to_handle->process_id, &status, WUNTRACED) < 0) {
+    if (waitpid(job_to_handle->process_id, &status, WUNTRACED) < 0) {
         perror("smash error: waitpid failed");
     }
     if (WIFEXITED(status) || WIFSIGNALED(status)) {
@@ -540,7 +539,7 @@ void RedirectionCommand::execute() {
         file_name = both_trim(cmd_line.substr(red_pos + 2));
     }
 
-    string actual_command = both_trim(cmd_line.substr(0, red_pos - 1));
+    string actual_command = both_trim(cmd_line.substr(0, red_pos));
     int new_out_fd, return_value, fd;
 
     // switch between stdout to user file.
@@ -566,7 +565,7 @@ void CatCommand::execute() {
         return;
     }
 
-    char buff[BUFFER_SIZE];
+
     // start with 1 to skip the cat command itself.
     for (int i = 1; i < num_of_args; i++) {
         int fd = 0;
@@ -578,22 +577,23 @@ void CatCommand::execute() {
         ssize_t input_read = 0;
         // start reading and writing.
         while (true) {
-            if ((input_read = read(fd, buff, sizeof(buff))) == -1) {
+            char buff[BUFFER_SIZE];
+            if ((input_read = read(fd, buff, BUFFER_SIZE)) == -1) {
                 perror("smash error: read failed");
                 break;
             }
-            // when we finish the file, input read will be 0 so break thw while and move to next file.
+                // when we finish the file, input read will be 0 so break thw while and move to next file.
             if (input_read == 0)
                 break;
-            else {
-                // this is to avoid adding new line at the end of file
-                //if(input_read != BUFFER_SIZE)
-                //    input_read--;
-                if (write(STDOUT_FILENO, buff, input_read) == -1) {
-                    perror("smash error: write failed");
-                    break;
-                }
+
+            // this is to avoid adding new line at the end of file
+            //if(input_read != BUFFER_SIZE)
+            //    input_read--;
+            if (write(STDOUT_FILENO, buff, input_read) == -1) {
+                perror("smash error: write failed");
+                break;
             }
+
         }
         if (close(fd) == -1)
             perror("smash error: close failed");
@@ -666,7 +666,7 @@ void TimeOutCommand::execute() {
     }
     SmallShell &smash = SmallShell::getInstance();
     string new_cmd_str;
-    for(int i = 2; i < num_of_args; i++) {
+    for (int i = 2; i < num_of_args; i++) {
         new_cmd_str += args[i] + " ";
     }
     new_cmd_str = both_trim(new_cmd_str);

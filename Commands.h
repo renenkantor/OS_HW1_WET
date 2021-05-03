@@ -271,20 +271,6 @@ public:
         std::sort(timeout_list.begin(), timeout_list.end(), timeComparor);
         cur_minimum_time = timeout_list.front().kill_time;
     }
-
-
-
-    /*void remove_entry(int pid) {
-        if (timeout_list.empty())
-            return;
-        time_t prev_kill = timeout_list.front().kill_time;
-        timeout_list.erase(timeout_list.begin()); // remove the latest timeout.
-        if (timeout_list.empty())
-            return;
-        cur_minimum_time = timeout_list.front().kill_time;
-        time_t alarm_elapsed = timeout_list.front().kill_time - prev_kill;
-        alarm(alarm_elapsed);
-    }*/
 };
 
 class TimeOutCommand : public Command {
