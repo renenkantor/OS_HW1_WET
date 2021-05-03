@@ -67,11 +67,7 @@ void JobsList::removeJobByPId(int jobPId) {
 
 void JobsList::addJob(Command *cmd, int process_id, bool is_stopped) {
     time_t start_time = time(nullptr);
-    string job_command;
-    if (cmd->is_time_out)
-        job_command = cmd->un_proccessed_cmd;
-    else
-        job_command = cmd->cmd_line;
+    string job_command = cmd->un_proccessed_cmd;
 
     int new_id;
     if (job_list.empty())
@@ -246,8 +242,9 @@ Command *SmallShell::CreateCommand(string &cmd_line) {
 void SmallShell::executeCommand(string &cmd_line) {
     jobs.removeFinishedJobs();
     jobs.update_max_id();
-    cmd_line = both_trim(cmd_line);
+    //cmd_line = both_trim(cmd_line);
     Command *cmd = CreateCommand(cmd_line);
+    cmd->un_proccessed_cmd = cmd_line;
     cmd->execute();
     delete cmd;
 }
@@ -496,7 +493,7 @@ void ExternalCommand::execute() {
         perror("smash error: fork failed");
         delete[] cmd_str;
         return;
-    } else if (pid == 0) { // son
+    } else if (pid == 0) {
         setpgrp();
         char *argv[] = {(char *) "/bin/bash", (char *) "-c", cmd_str, nullptr};
         if (execv(argv[0], argv) < 0) {
@@ -538,21 +535,21 @@ void RedirectionCommand::execute() {
         flags = O_RDWR | O_CREAT | O_APPEND;
         file_name = both_trim(cmd_line.substr(red_pos + 2));
     }
-
     string actual_command = both_trim(cmd_line.substr(0, red_pos));
-    int new_out_fd, return_value, fd;
+    int return_value, fd, tmp_stdout;
 
     // switch between stdout to user file.
-    SYS_CALL(new_out_fd, dup(STDOUT_FILENO));
-    SYS_CALL(return_value, close(STDOUT_FILENO));
     SYS_CALL(fd, open(file_name.c_str(), flags, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH | S_IWOTH));
+    SYS_CALL(tmp_stdout, dup(STDOUT_FILENO));
+    SYS_CALL(return_value, close(STDOUT_FILENO));
+    SYS_CALL(return_value, dup(fd));
 
     SmallShell::getInstance().executeCommand(actual_command);
 
     // switch back to stdout.
-    SYS_CALL(return_value, close(STDOUT_FILENO));
-    SYS_CALL(return_value, dup(new_out_fd));
-    SYS_CALL(return_value, close(new_out_fd));
+    SYS_CALL(return_value, dup2(tmp_stdout, STDOUT_FILENO));
+    SYS_CALL(return_value, close(fd));
+    SYS_CALL(return_value, close(tmp_stdout));
 }
 
 void CatCommand::execute() {
@@ -564,7 +561,6 @@ void CatCommand::execute() {
         perror("smash error: cat: not enough arguments");
         return;
     }
-
 
     // start with 1 to skip the cat command itself.
     for (int i = 1; i < num_of_args; i++) {
@@ -582,13 +578,10 @@ void CatCommand::execute() {
                 perror("smash error: read failed");
                 break;
             }
-                // when we finish the file, input read will be 0 so break thw while and move to next file.
+            // when we finish the file, input read will be 0 so break thw while and move to next file.
             if (input_read == 0)
                 break;
 
-            // this is to avoid adding new line at the end of file
-            //if(input_read != BUFFER_SIZE)
-            //    input_read--;
             if (write(STDOUT_FILENO, buff, input_read) == -1) {
                 perror("smash error: write failed");
                 break;
@@ -601,15 +594,14 @@ void CatCommand::execute() {
 }
 
 void PipeCommand::execute() {
-    BackgroundCommand::remove_background_sign(cmd_line);
+
     int new_pipe[2], fd = 0, return_value;
-
     SYS_CALL(return_value, pipe(new_pipe));
-
+    // left_command | right_command
     int left_command_pid = -1;
     int right_command_pid = -1;
     int del_pos = cmd_line.find_first_of('|');
-    string left_command = both_trim(cmd_line.substr(0, del_pos - 1));
+    string left_command = both_trim(cmd_line.substr(0, del_pos));
     string right_command;
     if (first_pipe)
         right_command = both_trim(cmd_line.substr(del_pos + 1));
@@ -618,8 +610,9 @@ void PipeCommand::execute() {
 
     SYS_CALL(left_command_pid, fork());
     if (left_command_pid == 0) {
+        setpgrp();
         if (second_pipe)
-            fd = STDERR_FILENO;
+            fd = STDERR_FILENO; // |
         else
             fd = STDOUT_FILENO;
 
@@ -629,26 +622,24 @@ void PipeCommand::execute() {
         SYS_CALL(return_value, close(new_pipe[1]));
         SmallShell::getInstance().executeCommand(left_command);
         SYS_CALL(return_value, close(fd));
+        exit(0);
     } else {
         SYS_CALL(right_command_pid, fork());
         if (right_command_pid == 0) {
+            setpgrp();
             SYS_CALL(return_value, close(new_pipe[1]));
             SYS_CALL(return_value, close(STDIN_FILENO));
             SYS_CALL(return_value, dup(new_pipe[0]));
             SYS_CALL(return_value, close(new_pipe[0]));
             SmallShell::getInstance().executeCommand(right_command);
             SYS_CALL(return_value, close(STDIN_FILENO));
+            exit(0);
         } else {
             SYS_CALL(return_value, close(new_pipe[0]));
             SYS_CALL(return_value, close(new_pipe[1]));
+            SYS_CALL(return_value, waitpid(left_command_pid, nullptr, 0));
+            SYS_CALL(return_value, waitpid(right_command_pid, nullptr, 0));
         }
-    }
-
-    if (left_command_pid == 0 || right_command_pid == 0) {
-        exit(0);
-    } else {
-        SYS_CALL(return_value, waitpid(left_command_pid, nullptr, 0));
-        SYS_CALL(return_value, waitpid(right_command_pid, nullptr, 0));
     }
 }
 
