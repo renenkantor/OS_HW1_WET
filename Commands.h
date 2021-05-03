@@ -271,7 +271,9 @@ public:
         std::sort(timeout_list.begin(), timeout_list.end(), timeComparor);
         cur_minimum_time = timeout_list.front().kill_time;
     }
-    int i = 3;
+
+
+
     /*void remove_entry(int pid) {
         if (timeout_list.empty())
             return;

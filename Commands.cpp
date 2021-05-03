@@ -267,8 +267,7 @@ void ChangePromptCommand::execute() {
     if (parseCommandLine(cmd_line, args) == 1)
         SmallShell::getInstance().prompt = "smash> ";
     else {
-        SmallShell::getInstance().prompt = args[1];
-        SmallShell::getInstance().prompt.append("> ");
+        SmallShell::getInstance().prompt = args[1] + "> ";
     }
 }
 
@@ -359,9 +358,7 @@ void KillCommand::execute() {
     JobEntry *job_to_handle;
 
     if ((job_to_handle = smash.jobs.getJobById(job_id)) == nullptr) {
-        string job_id_error = "smash error: kill: job-id ";
-        job_id_error.append(to_string(job_id));
-        job_id_error.append(" does not exist");
+        string job_id_error = "smash error: kill: job-id " + args[2] + " does not exist";
         perror(job_id_error.c_str());
     } else {
         // done with error handling. Now execute kill.
@@ -402,9 +399,7 @@ void ForegroundCommand::execute() {
         job_to_handle = smash.jobs.getJobById(job_id);
         // specific job does not exists in the list.
         if (job_to_handle == nullptr) {
-            string error_str = "smash error: fg: job-id ";
-            error_str.append(string(args[1]));
-            error_str.append("does not exist");
+            string error_str = "smash error: fg: job-id " + args[1] + " does not exist";
             perror(error_str.c_str());
             return;
         } else {
@@ -453,16 +448,12 @@ void BackgroundCommand::execute() {
         int job_id = stoi(string(args[1]));
         job_to_handle = smash.jobs.getJobById(job_id);
         if (job_to_handle == nullptr) {
-            string error_str = "smash error: bg: job-id ";
-            error_str.append(string(args[1]));
-            error_str.append("does not exist");
+            string error_str = "smash error: bg: job-id " + args[1] + " does not exist";
             perror(error_str.c_str());
             return;
         }
         if (!job_to_handle->is_stopped) {
-            string error_str = "smash error: bg: job-id ";
-            error_str.append(string(args[1]));
-            error_str.append("is already running in the background");
+            string error_str = "smash error: bg: job-id " + args[1] + " is already running in the background";
             perror(error_str.c_str());
             return;
         }
@@ -615,7 +606,6 @@ void CatCommand::execute() {
 }
 
 void PipeCommand::execute() {
-    int k = 232;
     BackgroundCommand::remove_background_sign(cmd_line);
     int new_pipe[2], fd = 0, return_value;
 
@@ -682,8 +672,7 @@ void TimeOutCommand::execute() {
     SmallShell &smash = SmallShell::getInstance();
     string new_cmd_str;
     for(int i = 2; i < num_of_args; i++) {
-        new_cmd_str.append(args[i]);
-        new_cmd_str.append(" ");
+        new_cmd_str += args[i] + " ";
     }
     new_cmd_str = both_trim(new_cmd_str);
     Command *new_cmd = smash.CreateCommand(new_cmd_str);
