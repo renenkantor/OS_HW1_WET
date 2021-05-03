@@ -615,7 +615,7 @@ void CatCommand::execute() {
 }
 
 void PipeCommand::execute() {
-
+    int k = 232;
     BackgroundCommand::remove_background_sign(cmd_line);
     int new_pipe[2], fd = 0, return_value;
 

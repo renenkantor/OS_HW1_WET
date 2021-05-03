@@ -256,9 +256,13 @@ public:
     add_entry(const string &cmd_line, const string &un_proccessed_cmd, int pid, time_t duration, time_t start_time) {
         TimeOutEntry time_out_entry(cmd_line, un_proccessed_cmd, pid, duration, start_time);
         timeout_list.push_back(time_out_entry);
+        std::sort(timeout_list.begin(), timeout_list.end(), timeComparor);
         // change alarm when we create a sole timeout, or the new kill time is the first to timeout.
-        if (duration + start_time < cur_minimum_time || timeout_list.size() == 1)
+        if (duration + start_time < cur_minimum_time || timeout_list.size() == 1) {
             cur_minimum_time = duration + start_time;
+            time_t alarm_elapsed = cur_minimum_time - timeout_list.front().start_time;
+            alarm(alarm_elapsed);
+        }
 
         for (auto &t : timeout_list) {
             time_t new_kill = t.kill_time + t.start_time - start_time;
@@ -266,11 +270,9 @@ public:
         }
         std::sort(timeout_list.begin(), timeout_list.end(), timeComparor);
         cur_minimum_time = timeout_list.front().kill_time;
-        time_t alarm_elapsed = cur_minimum_time - timeout_list.front().start_time;
-        alarm(alarm_elapsed);
     }
-
-    void remove_entry(int pid) {
+    int i = 3;
+    /*void remove_entry(int pid) {
         if (timeout_list.empty())
             return;
         time_t prev_kill = timeout_list.front().kill_time;
@@ -280,7 +282,7 @@ public:
         cur_minimum_time = timeout_list.front().kill_time;
         time_t alarm_elapsed = timeout_list.front().kill_time - prev_kill;
         alarm(alarm_elapsed);
-    }
+    }*/
 };
 
 class TimeOutCommand : public Command {
