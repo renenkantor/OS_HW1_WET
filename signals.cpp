@@ -55,11 +55,11 @@ void alarmHandler(int sig_num) {
     int return_value;
 
     int pid = smash.time_out_list.timeout_list.front().pid;
-    return_value = waitpid(pid, nullptr, WNOHANG);
-    if (return_value == 0) {
+    //return_value = waitpid(pid, nullptr, WNOHANG);
+    //if (return_value == 0) {
         SYS_CALL(return_value, kill(pid, sig_num));
         cout << "smash: " << smash.time_out_list.timeout_list.front().un_proccessed_cmd << " timed out!" << endl;
-    }
+    //}
     smash.time_out_list.timeout_list.erase(smash.time_out_list.timeout_list.begin()); // remove the recent timeout alarm.
     // set up new alarm for the next entry, if one exists.
     if(!smash.time_out_list.timeout_list.empty()) {

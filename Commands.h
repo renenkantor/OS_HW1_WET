@@ -298,17 +298,13 @@ public:
 
 class SmallShell {
 public:
-    SmallShell();
-
+    SmallShell(): prompt("smash> "), prev_wd(""), current_fg_pid(-1), current_fg_job_id(-1),max_job_id(-1), curr_fg_command(nullptr) {} ;
     ~SmallShell() = default;
-
     string prompt;
     string prev_wd;
     int current_fg_pid;
-    int my_smash_pid;
     int current_fg_job_id;
     int max_job_id;
-    string current_wd;
     Command *curr_fg_command;
     JobsList jobs;
     TimeOutList time_out_list;

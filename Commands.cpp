@@ -214,25 +214,25 @@ Command *SmallShell::CreateCommand(string &cmd_line) {
     else if (checkSecondPipe(cmd_line))
         return new PipeCommand(cmd_line, false, true);
     // **************       BUILT IN COMMANDS       **************
-    else if (firstWord == "pwd")
+    else if (firstWord == "pwd" || firstWord == "pwd&")
         return new GetCurrDirCommand(cmd_line);
-    else if (firstWord == "showpid")
+    else if (firstWord == "showpid" || firstWord == "showpid&")
         return new ShowPidCommand(cmd_line);
-    else if (firstWord == "jobs")
+    else if (firstWord == "jobs" || firstWord == "jobs&")
         return new JobsCommand(cmd_line, &jobs);
-    else if (firstWord == "chprompt")
+    else if (firstWord == "chprompt" || firstWord == "chprompt&")
         return new ChangePromptCommand(cmd_line);
-    else if (firstWord == "cd")
+    else if (firstWord == "cd" || firstWord == "cd&")
         return new ChangeDirCommand(cmd_line);
-    else if (firstWord == "kill")
+    else if (firstWord == "kill" || firstWord == "kill&")
         return new KillCommand(cmd_line, &jobs);
-    else if (firstWord == "fg")
+    else if (firstWord == "fg" || firstWord == "fg&")
         return new ForegroundCommand(cmd_line, &jobs);
-    else if (firstWord == "bg")
+    else if (firstWord == "bg" || firstWord == "bg&")
         return new BackgroundCommand(cmd_line, &jobs);
-    else if (firstWord == "quit")
+    else if (firstWord == "quit" || firstWord == "quit&")
         return new QuitCommand(cmd_line, &jobs);
-    else if (firstWord == "cat")
+    else if (firstWord == "cat" || firstWord == "cat&")
         return new CatCommand(cmd_line);
     // **************       EXTERNAL COMMANDS       **************
     else if(firstWord == "timeout")
@@ -251,20 +251,13 @@ void SmallShell::executeCommand(string &cmd_line) {
     delete cmd;
 }
 
-SmallShell::SmallShell() : prompt("smash> "), prev_wd(""), current_fg_pid(-1), my_smash_pid(getpid()),
-                           curr_fg_command(nullptr) {
-    char current_pwd[PATH_MAX_CD];
-    if (getcwd(current_pwd, PATH_MAX_CD) != nullptr)
-        current_wd = current_pwd;
-}
-
 // ***********************************************************************************************************************************
 // **********************************                BUILT IN EXECUTE                 ************************************************
 // ***********************************************************************************************************************************
 
 void ChangePromptCommand::execute() {
     vector<string> args;
-    if (parseCommandLine(cmd_line, args) == 1)
+    if (parseCommandLine(cmd_line, args) == 1 || args[1] == "&")
         SmallShell::getInstance().prompt = "smash> ";
     else {
         SmallShell::getInstance().prompt = args[1] + "> ";
@@ -272,7 +265,6 @@ void ChangePromptCommand::execute() {
 }
 
 void ShowPidCommand::execute() {
-
     int ret_pid = 0;
     SYS_CALL(ret_pid, getpid());
     cout << "smash pid is " << ret_pid << endl;
@@ -291,6 +283,7 @@ void ChangeDirCommand::execute() {
     vector<string> args;
     int return_val;
     int num_of_args = parseCommandLine(cmd_line, args);
+
     // too many args.
     if (num_of_args >= 3) {
         perror("smash error: cd: too many arguments");
@@ -303,26 +296,28 @@ void ChangeDirCommand::execute() {
     if (args[1] != "-") {
         char current_pwd[PATH_MAX_CD];
         getcwd(current_pwd, PATH_MAX_CD);
-        smash.prev_wd = string(current_pwd);
         SYS_CALL(return_val, chdir(args[1].c_str()));
-
+        smash.prev_wd = string(current_pwd);
         // change to prev dir.
     } else {
-        if (smash.prev_wd.empty())
+        if (smash.prev_wd.empty()) {
             perror("smash error: cd: OLDPWD not set");
+            return;
+        }
         else {
-            SYS_CALL(return_val, chdir(smash.prev_wd.c_str()));
             char current_pwd[PATH_MAX_CD];
             getcwd(current_pwd, PATH_MAX_CD);
+            SYS_CALL(return_val, chdir(smash.prev_wd.c_str()));
             smash.prev_wd = string(current_pwd);
         }
     }
 }
 
 void JobsCommand::execute() {
-    SmallShell &smash = SmallShell::getInstance();
-    std::sort(smash.jobs.job_list.begin(), smash.jobs.job_list.end(), JobsComparor);
-    for (auto &job : smash.jobs.job_list) {
+    if(jobs_list->job_list.empty())
+        return;
+    std::sort(jobs_list->job_list.begin(), jobs_list->job_list.end(), JobsComparor);
+    for (auto &job : jobs_list->job_list) {
         if (job.is_stopped)
             cout << "[" << job.job_id << "]" << job.job_command << " : " << job.process_id << " "
                  << job.calc_job_elapsed_time() << " secs (stopped)" << endl;
@@ -343,8 +338,8 @@ void KillCommand::execute() {
 
     // removes - sign from the first number.
     args[1].erase(0, 1);
-    bool check_if_second_is_int = (args[1].find_first_not_of("0123456789") == std::string::npos);
-    bool check_if_third_is_int = (args[2].find_first_not_of("0123456789") == std::string::npos);
+    bool check_if_second_is_int = (args[1].find_first_not_of("-0123456789") == std::string::npos);
+    bool check_if_third_is_int = (args[2].find_first_not_of("-0123456789") == std::string::npos);
 
     // second and third argument must be numbers.
     if (!check_if_second_is_int || !check_if_third_is_int) {
@@ -592,8 +587,8 @@ void CatCommand::execute() {
                 break;
             else {
                 // this is to avoid adding new line at the end of file
-                if(input_read != BUFFER_SIZE)
-                    input_read--;
+                //if(input_read != BUFFER_SIZE)
+                //    input_read--;
                 if (write(STDOUT_FILENO, buff, input_read) == -1) {
                     perror("smash error: write failed");
                     break;
