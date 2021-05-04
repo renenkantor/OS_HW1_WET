@@ -285,7 +285,7 @@ public:
 class SmallShell {
 public:
     SmallShell() : prompt("smash> "), prev_wd(""), current_fg_pid(-1), current_fg_job_id(-1), max_job_id(-1),
-                   curr_fg_command(nullptr) {};
+                   curr_fg_command(nullptr) {} ;
 
     ~SmallShell() = default;
 

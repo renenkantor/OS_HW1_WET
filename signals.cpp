@@ -7,7 +7,6 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-
 using namespace std;
 
 void ctrlZHandler(int sig_num) {
@@ -27,7 +26,7 @@ void ctrlZHandler(int sig_num) {
         smash.jobs.addJob(smash.curr_fg_command, curr_pid, true);
     } else {
         job->is_stopped = true;
-        job->start_time = time(nullptr);
+        job->start_time = time(nullptr); // reset the time of the job after it has stopped.
     }
 
     smash.jobs.getJobByPId(curr_pid)->is_stopped = true;
@@ -56,19 +55,14 @@ void alarmHandler(int sig_num) {
     int return_value;
 
     int pid = smash.time_out_list.timeout_list.front().pid;
-    //return_value = waitpid(pid, nullptr, WNOHANG);
-    //if (return_value == 0) {
-        SYS_CALL(return_value, kill(pid, sig_num));
-        cout << "smash: " << smash.time_out_list.timeout_list.front().un_proccessed_cmd << " timed out!" << endl;
-    //}
-    smash.time_out_list.timeout_list.erase(smash.time_out_list.timeout_list.begin()); // remove the recent timeout alarm.
+    SYS_CALL(return_value, kill(pid, sig_num));
+    cout << "smash: " << smash.time_out_list.timeout_list.front().un_proccessed_cmd << " timed out!" << endl;
+    smash.time_out_list.timeout_list.erase(
+            smash.time_out_list.timeout_list.begin()); // remove the recent timeout alarm.
     // set up new alarm for the next entry, if one exists.
-    if(!smash.time_out_list.timeout_list.empty()) {
+    if (!smash.time_out_list.timeout_list.empty()) {
         time_t time_for_new_alarm = smash.time_out_list.timeout_list.front().kill_time - time(nullptr);
         alarm(time_for_new_alarm);
     }
-    // smash.time_out_list.remove_entry(pid);
     smash.jobs.removeJobByPId(pid);
 }
-
-

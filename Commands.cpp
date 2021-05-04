@@ -242,7 +242,6 @@ Command *SmallShell::CreateCommand(string &cmd_line) {
 void SmallShell::executeCommand(string &cmd_line) {
     jobs.removeFinishedJobs();
     jobs.update_max_id();
-    //cmd_line = both_trim(cmd_line);
     Command *cmd = CreateCommand(cmd_line);
     cmd->un_proccessed_cmd = cmd_line;
     cmd->execute();
@@ -386,6 +385,12 @@ void ForegroundCommand::execute() {
     }
         // specific job handling.
     else {
+        bool check_if_id_is_num = args[1].find_first_not_of("-0123456789") == std::string::npos;
+        if(!check_if_id_is_num) {
+            perror("smash error: fg: invalid arguments");
+            return;
+        }
+
         int job_id = stoi(args[1]);
         job_to_handle = smash.jobs.getJobById(job_id);
         // specific job does not exists in the list.
@@ -412,8 +417,6 @@ void ForegroundCommand::execute() {
         smash.current_fg_job_id = -1;
     }
     smash.jobs.update_max_id();
-//    smash.jobs.removeJobById(job_to_handle->job_id);
-
 }
 
 void BackgroundCommand::execute() {
@@ -436,7 +439,12 @@ void BackgroundCommand::execute() {
         }
         // handle specific job.
     } else {
-        int job_id = stoi(string(args[1]));
+        bool check_if_id_is_num = args[1].find_first_not_of("-0123456789") == std::string::npos;
+        if(!check_if_id_is_num) {
+            perror("smash error: bg: invalid arguments");
+            return;
+        }
+        int job_id = stoi(args[1]);
         job_to_handle = smash.jobs.getJobById(job_id);
         if (job_to_handle == nullptr) {
             string error_str = "smash error: bg: job-id " + args[1] + " does not exist";
@@ -476,7 +484,6 @@ void QuitCommand::execute() {
 
 void ExternalCommand::execute() {
 
-    // TODO : check about unproccessed cmd_line when adding to job list.
     bool is_background = isBackgroundCommand(cmd_line);
     SmallShell &smash = SmallShell::getInstance();
     string cmd_line_with_bg;
@@ -553,7 +560,6 @@ void RedirectionCommand::execute() {
 }
 
 void CatCommand::execute() {
-    // TODO : check the problem with new line on different files.
     vector<string> args;
     remove_background_sign(cmd_line);
     int num_of_args = parseCommandLine(cmd_line, args);
@@ -597,7 +603,7 @@ void PipeCommand::execute() {
 
     int new_pipe[2], fd = 0, return_value;
     SYS_CALL(return_value, pipe(new_pipe));
-    // left_command | right_command
+
     int left_command_pid = -1;
     int right_command_pid = -1;
     int del_pos = cmd_line.find_first_of('|');
@@ -612,7 +618,7 @@ void PipeCommand::execute() {
     if (left_command_pid == 0) {
         setpgrp();
         if (second_pipe)
-            fd = STDERR_FILENO; // |
+            fd = STDERR_FILENO;
         else
             fd = STDOUT_FILENO;
 
@@ -657,14 +663,15 @@ void TimeOutCommand::execute() {
     }
     SmallShell &smash = SmallShell::getInstance();
     string new_cmd_str;
-    for (int i = 2; i < num_of_args; i++) {
+    for (int i = 2; i < num_of_args; i++)
         new_cmd_str += args[i] + " ";
-    }
+
     new_cmd_str = both_trim(new_cmd_str);
     Command *new_cmd = smash.CreateCommand(new_cmd_str);
-    (*new_cmd).is_time_out = true;
-    (*new_cmd).kill_time = stoi(args[1]);
-    (*new_cmd).un_proccessed_cmd = un_proccessed_cmd;
+
+    new_cmd->is_time_out = true;
+    new_cmd->kill_time = stoi(args[1]);
+    new_cmd->un_proccessed_cmd = un_proccessed_cmd;
     new_cmd->execute();
     delete new_cmd;
 }
