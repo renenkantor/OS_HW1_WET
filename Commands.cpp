@@ -112,6 +112,7 @@ void JobsList::update_max_id() {
 void JobsList::removeFinishedJobs() {
     if (job_list.empty()) return;
     int wait_res = waitpid(-1, nullptr, WNOHANG);
+    // the problem with timeout not in job list is here !!!!!!!!!!!!!!!!!!!
     while (wait_res > 0) {
         removeJobByPId(wait_res);
         wait_res = waitpid(-1, nullptr, WNOHANG);
@@ -510,7 +511,7 @@ void ExternalCommand::execute() {
         }
     } else {
         if (this->is_time_out)
-            smash.time_out_list.add_entry(cmd_line, un_proccessed_cmd, pid, kill_time, time(nullptr));
+            smash.time_out_list.add_entry(cmd_line, un_proccessed_cmd, pid, kill_time, time(nullptr), is_background);
 
         if (is_background) {
             cmd_line = cmd_line_with_bg;
@@ -653,12 +654,14 @@ void TimeOutCommand::execute() {
     vector<string> args;
     string un_proccessed_cmd = cmd_line; // this is used only for printing.
     int num_of_args = parseCommandLine(cmd_line, args);
-    if (num_of_args < 3)
+    if (num_of_args < 3) {
+        perror("smash error: timeout: invalid arguments");
         return;
+    }
 
     bool check_if_duration_is_int = (args[1].find_first_not_of("0123456789") == std::string::npos);
     if (!check_if_duration_is_int) {
-        perror("smash error: timeout: invalid argument");
+        perror("smash error: timeout: invalid arguments");
         return;
     }
     SmallShell &smash = SmallShell::getInstance();

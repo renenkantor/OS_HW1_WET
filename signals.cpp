@@ -51,18 +51,22 @@ void alarmHandler(int sig_num) {
     SmallShell &smash = SmallShell::getInstance();
     if (smash.time_out_list.timeout_list.empty())
         return;
+    int pid = smash.time_out_list.timeout_list.begin()->pid;
+    // this alarm job has removed from the jobs list so remove it.
+    if(smash.time_out_list.timeout_list.begin()->is_timeout_bg && smash.jobs.getJobByPId(pid) == nullptr) {
+        smash.time_out_list.remove_entry(pid);
+        return;
+    }
+
     cout << "smash: got an alarm" << endl;
     int return_value;
 
-    int pid = smash.time_out_list.timeout_list.front().pid;
     SYS_CALL(return_value, kill(pid, sig_num));
-    cout << "smash: " << smash.time_out_list.timeout_list.front().un_proccessed_cmd << " timed out!" << endl;
-    smash.time_out_list.timeout_list.erase(
-            smash.time_out_list.timeout_list.begin()); // remove the recent timeout alarm.
+    cout << "smash: " << smash.time_out_list.timeout_list.begin()->un_proccessed_cmd << " timed out!" << endl;
+    smash.time_out_list.timeout_list.erase(smash.time_out_list.timeout_list.begin()); // remove the recent timeout alarm.
     // set up new alarm for the next entry, if one exists.
     if (!smash.time_out_list.timeout_list.empty()) {
-        time_t time_for_new_alarm = smash.time_out_list.timeout_list.front().kill_time - time(nullptr);
-        alarm(time_for_new_alarm);
+        alarm(difftime(smash.time_out_list.timeout_list.begin()->kill_time, time(nullptr)));
     }
     smash.jobs.removeJobByPId(pid);
 }
